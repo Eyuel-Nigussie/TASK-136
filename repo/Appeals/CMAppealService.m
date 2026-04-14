@@ -58,15 +58,26 @@
         return nil;
     }
 
-    // 1b. Role check: only couriers (own score) and customer service (dispute intake) may open appeals.
-    if (![tc.currentRole isEqualToString:CMUserRoleCourier] &&
-        ![tc.currentRole isEqualToString:CMUserRoleCustomerService] &&
-        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+    // 1b. Permission check via centralized RBAC matrix.
+    //     Admin always passes; other roles must have 'appeals.open'.
+    if (![tc.currentRole isEqualToString:CMUserRoleAdmin] &&
+        ![[CMPermissionMatrix shared] hasPermission:@"appeals.open" forRole:tc.currentRole]) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodePermissionDenied
-                                    message:@"Only couriers, customer service, and admins may open appeals"];
+                                    message:@"Current role does not have appeals.open permission"];
         }
         return nil;
+    }
+
+    // 1c. Object-level ownership: couriers may only appeal their own scorecards.
+    if ([tc.currentRole isEqualToString:CMUserRoleCourier]) {
+        if (![scorecard.courierId isEqualToString:tc.currentUserId]) {
+            if (error) {
+                *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                        message:@"Couriers may only appeal scorecards for their own deliveries"];
+            }
+            return nil;
+        }
     }
 
     // 2. Create the appeal entity.
@@ -86,7 +97,8 @@
     appeal.beforeScoreSnapshotJSON = [self snapshotForScorecard:scorecard];
 
     CMLogInfo(@"appeals.service", @"Opened appeal %@ for scorecard %@ (dispute: %@)",
-              appeal.appealId, scorecard.scorecardId, dispute.disputeId ?: @"none");
+              [CMDebugLogger redact:appeal.appealId], [CMDebugLogger redact:scorecard.scorecardId],
+              dispute.disputeId ? [CMDebugLogger redact:dispute.disputeId] : @"none");
 
     // 4. Write audit entry.
     NSDictionary *afterJSON = [self snapshotForAppeal:appeal];
@@ -181,7 +193,8 @@
                                    reason:reason
                                completion:nil];
 
-    CMLogInfo(@"appeals.service", @"Assigned reviewer %@ to appeal %@", reviewerId, appeal.appealId);
+    CMLogInfo(@"appeals.service", @"Assigned reviewer %@ to appeal %@",
+              [CMDebugLogger redact:reviewerId], [CMDebugLogger redact:appeal.appealId]);
 
     return YES;
 }
@@ -302,7 +315,7 @@
                                completion:nil];
 
     CMLogInfo(@"appeals.service", @"Decision submitted for appeal %@: %@",
-              appeal.appealId, decision);
+              [CMDebugLogger redact:appeal.appealId], decision);
 
     return YES;
 }
@@ -393,7 +406,7 @@
                                        completion:nil];
         } else {
             CMLogWarn(@"appeals.service", @"Linked dispute %@ not found: %@",
-                      appeal.disputeId, disputeErr.localizedDescription);
+                      [CMDebugLogger redact:appeal.disputeId], disputeErr.localizedDescription);
         }
     }
 
@@ -410,7 +423,8 @@
                                completion:nil];
 
     CMLogInfo(@"appeals.service", @"Closed appeal %@ (dispute: %@)",
-              appeal.appealId, appeal.disputeId ?: @"none");
+              [CMDebugLogger redact:appeal.appealId],
+              appeal.disputeId ? [CMDebugLogger redact:appeal.disputeId] : @"none");
 
     return YES;
 }

@@ -8,6 +8,7 @@
 #import "CMOrder.h"
 #import "CMDisputeRepository.h"
 #import "CMTenantContext.h"
+#import "CMPermissionMatrix.h"
 #import "CMAuditService.h"
 #import "CMUserAccount.h"
 #import "CMError.h"
@@ -44,13 +45,13 @@
         return nil;
     }
 
-    // 2. Role check: only customer service, couriers, and admins may open disputes.
-    if (![tc.currentRole isEqualToString:CMUserRoleCustomerService] &&
-        ![tc.currentRole isEqualToString:CMUserRoleCourier] &&
-        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+    // 2. Permission check via centralized RBAC matrix.
+    //    Admin always passes; other roles must have 'disputes.open'.
+    if (![tc.currentRole isEqualToString:CMUserRoleAdmin] &&
+        ![[CMPermissionMatrix shared] hasPermission:@"disputes.open" forRole:tc.currentRole]) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodePermissionDenied
-                                    message:@"Only customer service, couriers, and admins may open disputes"];
+                                    message:@"Current role does not have disputes.open permission"];
         }
         return nil;
     }
@@ -63,6 +64,17 @@
                                     message:@"Order reference is required to open a dispute"];
         }
         return nil;
+    }
+
+    // 3b. Object-level ownership: couriers may only dispute their own orders.
+    if ([tc.currentRole isEqualToString:CMUserRoleCourier] && order) {
+        if (![order.assignedCourierId isEqualToString:tc.currentUserId]) {
+            if (error) {
+                *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                        message:@"Couriers may only open disputes for orders assigned to them"];
+            }
+            return nil;
+        }
     }
 
     // 4. Create the dispute entity.

@@ -327,7 +327,8 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
             if ([pm hasPermission:@"orders.update_status_own" forRole:role]) count++; // Update Status
             if ([pm hasPermission:@"orders.edit_notes" forRole:role]) count++; // Edit Notes
             if ([pm hasPermission:@"disputes.open" forRole:role]) count++; // Open Dispute
-            count++; // Capture Photo (always available)
+            if ([pm hasPermission:@"attachments.upload_own" forRole:role] ||
+                [pm hasPermission:@"attachments.upload_dispute" forRole:role]) count++; // Capture Photo
             return MAX(count, 1); // at least show something
         }
         default: return 0;
@@ -428,7 +429,8 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
             if ([pm hasPermission:@"orders.update_status_own" forRole:role]) [actions addObject:@"update_status"];
             if ([pm hasPermission:@"orders.edit_notes" forRole:role]) [actions addObject:@"edit_notes"];
             if ([pm hasPermission:@"disputes.open" forRole:role]) [actions addObject:@"open_dispute"];
-            [actions addObject:@"capture_photo"];
+            if ([pm hasPermission:@"attachments.upload_own" forRole:role] ||
+                [pm hasPermission:@"attachments.upload_dispute" forRole:role]) [actions addObject:@"capture_photo"];
 
             if (indexPath.row < (NSInteger)actions.count) {
                 NSString *action = actions[indexPath.row];

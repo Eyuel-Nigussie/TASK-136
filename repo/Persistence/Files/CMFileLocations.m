@@ -38,14 +38,26 @@
     return [dir URLByAppendingPathComponent:@"work.sqlite" isDirectory:NO];
 }
 
-+ (BOOL)isUUIDString:(NSString *)s {
-    return [[NSUUID alloc] initWithUUIDString:s] != nil;
++ (NSString *)sanitizedPathComponent:(NSString *)input {
+    if (!input || input.length == 0) { return nil; }
+    // Strip everything except alphanumeric characters and hyphens to prevent path traversal.
+    NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:
+        @"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"];
+    NSMutableString *safe = [NSMutableString string];
+    for (NSUInteger i = 0; i < input.length; i++) {
+        unichar c = [input characterAtIndex:i];
+        if ([allowed characterIsMember:c]) {
+            [safe appendFormat:@"%C", c];
+        }
+    }
+    return safe.length > 0 ? [safe copy] : nil;
 }
 
 + (NSURL *)attachmentsDirectoryForTenantId:(NSString *)tenantId
                             createIfNeeded:(BOOL)create {
-    if (![self isUUIDString:tenantId]) { return nil; }
-    NSString *sub = [@"attachments" stringByAppendingPathComponent:tenantId];
+    NSString *safeTenant = [self sanitizedPathComponent:tenantId];
+    if (!safeTenant) { return nil; }
+    NSString *sub = [@"attachments" stringByAppendingPathComponent:safeTenant];
     return [self urlForSearchPath:NSDocumentDirectory subfolder:sub create:create];
 }
 

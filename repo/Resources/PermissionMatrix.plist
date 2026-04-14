@@ -17,6 +17,8 @@
         <string>orders.update_status_own</string>
         <string>attachments.upload_own</string>
         <string>notifications.read_own</string>
+        <string>disputes.open</string>
+        <string>appeals.open</string>
     </array>
     <key>dispatcher</key>
     <array>
@@ -38,6 +40,7 @@
         <string>orders.view_all</string>
         <string>orders.edit_notes</string>
         <string>disputes.open</string>
+        <string>appeals.open</string>
         <string>attachments.upload_dispute</string>
     </array>
     <key>finance</key>

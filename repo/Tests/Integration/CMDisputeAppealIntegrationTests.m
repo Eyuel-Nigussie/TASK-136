@@ -565,4 +565,94 @@
     XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
 }
 
+#pragma mark - Test: Object Ownership — Courier Cannot Dispute Another Courier's Order
+
+- (void)testCourierCannotDisputeAnotherCouriersOrder {
+    // Create an order assigned to a different courier (dispatcher user as placeholder).
+    CMOrder *order = [self insertTestOrder:@"ord-ownership-1"];
+    order.status = CMOrderStatusDelivered;
+    order.assignedCourierId = self.dispatcherUser.userId; // Not the courier user
+    [self saveContext];
+
+    // Courier tries to open dispute for an order not assigned to them.
+    [self switchToUser:self.courierUser];
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
+                                           reason:@"Not my order" category:@"other" error:&err];
+    XCTAssertNil(dispute, @"Courier should not be able to dispute orders not assigned to them");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
+}
+
+- (void)testCourierCanDisputeOwnOrder {
+    CMOrder *order = [self insertTestOrder:@"ord-ownership-2"];
+    order.status = CMOrderStatusDelivered;
+    order.assignedCourierId = self.courierUser.userId;
+    [self saveContext];
+
+    [self switchToUser:self.courierUser];
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
+                                           reason:@"My order dispute" category:@"damage" error:&err];
+    XCTAssertNotNil(dispute, @"Courier should be able to dispute own order: %@", err);
+}
+
+#pragma mark - Test: Object Ownership — Courier Cannot Appeal Another Courier's Scorecard
+
+- (void)testCourierCannotAppealAnotherCouriersScorecard {
+    // Create a finalized scorecard for a different courier.
+    CMOrder *order = [self insertTestOrder:@"ord-ownership-3"];
+    order.status = CMOrderStatusDelivered;
+    order.assignedCourierId = @"other-courier-id";
+    order.pickupAddress = [self addressWithLat:40.7128 lng:-74.0060 zip:@"10001" city:@"New York"];
+    order.dropoffAddress = [self addressWithLat:40.7580 lng:-73.9855 zip:@"10036" city:@"New York"];
+    order.pickupWindowStart = [NSDate dateWithTimeIntervalSinceNow:-7200];
+    order.pickupWindowEnd = [NSDate dateWithTimeIntervalSinceNow:-3600];
+    order.dropoffWindowStart = [NSDate dateWithTimeIntervalSinceNow:-3600];
+    order.dropoffWindowEnd = [NSDate dateWithTimeIntervalSinceNow:-600];
+    order.updatedAt = [NSDate dateWithTimeIntervalSinceNow:-300];
+
+    [self insertTestRubric:@"rubric-ownership"];
+    [self saveContext];
+
+    // Create and finalize scorecard as reviewer (for a different courier).
+    [self switchToUser:self.reviewerUser];
+    CMScoringEngine *engine = [[CMScoringEngine alloc] initWithContext:self.testContext];
+    NSError *scErr = nil;
+    CMDeliveryScorecard *scorecard = [engine createScorecardForOrder:order
+                                                          courierId:@"other-courier-id"
+                                                              error:&scErr];
+    XCTAssertNotNil(scorecard, @"Scorecard creation failed: %@", scErr);
+    [engine recordManualGrade:scorecard itemKey:@"customer_satisfaction" points:20.0 notes:@"ok" error:nil];
+    [engine recordManualGrade:scorecard itemKey:@"package_handling" points:22.0 notes:@"ok" error:nil];
+    [engine finalizeScorecard:scorecard error:nil];
+    XCTAssertTrue([scorecard isFinalized]);
+    [self saveContext];
+
+    // Courier tries to appeal another courier's scorecard.
+    [self switchToUser:self.courierUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    NSError *appealErr = nil;
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard
+                                          reason:@"Not my scorecard" error:&appealErr];
+    XCTAssertNil(appeal, @"Courier should not be able to appeal another courier's scorecard");
+    XCTAssertNotNil(appealErr);
+    XCTAssertEqual(appealErr.code, CMErrorCodePermissionDenied);
+}
+
+- (void)testCourierCanAppealOwnScorecard {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    // The scorecard was created for self.courierUserId, so the courier should be able to appeal.
+    [self switchToUser:self.courierUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    NSError *appealErr = nil;
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard
+                                          reason:@"My scorecard appeal" error:&appealErr];
+    XCTAssertNotNil(appeal, @"Courier should be able to appeal own scorecard: %@", appealErr);
+}
+
 @end

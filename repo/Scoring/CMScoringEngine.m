@@ -158,7 +158,8 @@ static NSString * const kResultNotesKey     = @"notes";
     scorecard.manualResults    = @[];
 
     CMLogInfo(@"scoring.engine", @"Created scorecard %@ for order %@ (rubric %@ v%lld, %lu auto results)",
-              scorecard.scorecardId, order.orderId, rubric.rubricId, rubric.rubricVersion,
+              [CMDebugLogger redact:scorecard.scorecardId], [CMDebugLogger redact:order.orderId],
+              [CMDebugLogger redact:rubric.rubricId], rubric.rubricVersion,
               (unsigned long)automatedResults.count);
 
     // 5. Write audit entry for scorecard creation.
@@ -265,7 +266,7 @@ static NSString * const kResultNotesKey     = @"notes";
                                completion:nil];
 
     CMLogInfo(@"scoring.engine", @"Upgraded scorecard %@ -> %@ (rubric v%lld -> v%lld)",
-              scorecard.scorecardId, newScorecard.scorecardId,
+              [CMDebugLogger redact:scorecard.scorecardId], [CMDebugLogger redact:newScorecard.scorecardId],
               scorecard.rubricVersion, newScorecard.rubricVersion);
 
     return newScorecard;
@@ -394,7 +395,7 @@ static NSString * const kResultNotesKey     = @"notes";
                                completion:nil];
 
     CMLogInfo(@"scoring.engine", @"Recorded manual grade for scorecard %@, item %@: %.2f/%.2f",
-              scorecard.scorecardId, itemKey, points, maxPoints);
+              [CMDebugLogger redact:scorecard.scorecardId], itemKey, points, maxPoints);
 
     return YES;
 }
@@ -516,7 +517,7 @@ static NSString * const kResultNotesKey     = @"notes";
                                completion:nil];
 
     CMLogInfo(@"scoring.engine", @"Finalized scorecard %@: %.2f / %.2f",
-              scorecard.scorecardId, totalPoints, maxPoints);
+              [CMDebugLogger redact:scorecard.scorecardId], totalPoints, maxPoints);
 
     return YES;
 }

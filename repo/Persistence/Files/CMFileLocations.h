@@ -23,9 +23,13 @@ NS_ASSUME_NONNULL_BEGIN
 /// Q7: holds cleanup-only metadata so background tasks can run while device is locked.
 + (NSURL *)sidecarStoreURL;
 
-/// `Documents/attachments/{tenantId}/` — validates tenantId is UUID-shaped.
+/// `Documents/attachments/{tenantId}/` — tenantId is sanitized to be path-safe.
+/// Returns nil only if tenantId is empty or entirely non-alphanumeric.
 + (nullable NSURL *)attachmentsDirectoryForTenantId:(NSString *)tenantId
                                    createIfNeeded:(BOOL)create;
+
+/// Returns a path-safe version of a tenant ID (alphanumeric + hyphen only).
++ (nullable NSString *)sanitizedPathComponent:(NSString *)input;
 
 /// `Caches/attachment-thumbs/` — evicted on memory warning.
 + (NSURL *)thumbnailCacheDirectoryCreatingIfNeeded:(BOOL)create;
