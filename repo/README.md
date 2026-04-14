@@ -19,6 +19,25 @@ itinerary-based order matching, and compliant delivery performance scoring.
 
 ## Docker Commands
 
+### All Commands
+
+```
+docker run couriermatch build       # Validate project (any platform)
+docker run couriermatch test        # Validate tests (any platform)
+docker run couriermatch run-mac     # Launch on simulator (macOS only)
+docker run couriermatch test-mac    # Run XCTest suite (macOS only)
+docker run couriermatch help        # Show all commands
+```
+
+### Docker Compose
+
+```bash
+docker compose run build
+docker compose run test
+docker compose run run-mac       # macOS only
+docker compose run test-mac      # macOS only
+```
+
 ### Build (works on Linux and macOS)
 
 ```bash
@@ -52,25 +71,6 @@ docker run -v "$(pwd):/app" couriermatch run-mac   # Build + launch on simulator
 ```bash
 ./scripts/docker-setup.sh                           # One-time setup
 docker run -v "$(pwd):/app" couriermatch test-mac   # Run 231 XCTest tests
-```
-
-### All Commands
-
-```
-docker run couriermatch build       # Validate project (any platform)
-docker run couriermatch test        # Validate tests (any platform)
-docker run couriermatch run-mac     # Launch on simulator (macOS only)
-docker run couriermatch test-mac    # Run XCTest suite (macOS only)
-docker run couriermatch help        # Show all commands
-```
-
-### Docker Compose
-
-```bash
-docker compose run build
-docker compose run test
-docker compose run run-mac       # macOS only
-docker compose run test-mac      # macOS only
 ```
 
 ---
