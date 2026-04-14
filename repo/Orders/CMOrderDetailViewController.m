@@ -201,7 +201,8 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
                     // Emit status-change notification
                     CMNotificationCenterService *notifService = [[CMNotificationCenterService alloc] init];
                     NSString *templateKey = [status isEqualToString:CMOrderStatusPickedUp] ? @"picked_up" :
-                                            [status isEqualToString:CMOrderStatusDelivered] ? @"delivered" : oldStatus;
+                                            [status isEqualToString:CMOrderStatusDelivered] ? @"delivered" :
+                                            [status isEqualToString:CMOrderStatusCancelled] ? @"cancelled" : @"assigned";
                     NSString *recipientId = self.order.assignedCourierId ?: [CMTenantContext shared].currentUserId ?: @"";
                     NSDateFormatter *timeFmt = [CMDateFormatters canonicalTimeFormatterInTimeZone:nil];
                     NSString *nowFormatted = [timeFmt stringFromDate:[NSDate date]];

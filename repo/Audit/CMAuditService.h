@@ -74,6 +74,21 @@ typedef void (^CMAuditServiceCompletion)(CMAuditEntry * _Nullable entry,
                                     context:(NSManagedObjectContext *)context
                                       error:(NSError **)error;
 
+/// Records an audit action with explicit actor/tenant parameters.
+/// Use this for background/async events where CMTenantContext may be unavailable
+/// (e.g., attachment tamper detection, background cleanup, system events).
+/// This ensures the non-editable audit trail is never silently skipped.
+- (void)recordAction:(NSString *)action
+          targetType:(nullable NSString *)targetType
+            targetId:(nullable NSString *)targetId
+          beforeJSON:(nullable NSDictionary *)beforeJSON
+           afterJSON:(nullable NSDictionary *)afterJSON
+              reason:(nullable NSString *)reason
+         actorUserId:(NSString *)actorUserId
+           actorRole:(NSString *)actorRole
+            tenantId:(NSString *)tenantId
+          completion:(nullable CMAuditServiceCompletion)completion;
+
 @end
 
 NS_ASSUME_NONNULL_END

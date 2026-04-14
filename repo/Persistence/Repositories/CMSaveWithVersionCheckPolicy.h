@@ -50,6 +50,18 @@ typedef CMFieldMergeResolution (^CMFieldConflictResolver)(NSString *field, id _N
               conflictFields:(NSArray<NSString *> * _Nullable * _Nullable)conflictFieldsOut
                        error:(NSError **)error;
 
+/// Dry-run conflict detection: identifies which fields conflict between the
+/// proposed `changes` and the current on-disk state WITHOUT saving, bumping
+/// version, or mutating the object. Returns YES if a version conflict exists.
+/// On return, `conflictFields` lists fields where proposed value differs from
+/// on-disk value, and `theirValues`/`mineValues` carry both sides for UI display.
++ (BOOL)detectConflictsForChanges:(NSDictionary<NSString *, id> *)changes
+                         onObject:(NSManagedObject *)object
+                      baseVersion:(int64_t)baseVersion
+                   conflictFields:(NSArray<NSString *> * _Nullable * _Nullable)conflictFieldsOut
+                      theirValues:(NSDictionary<NSString *, id> * _Nullable * _Nullable)theirValuesOut
+                       mineValues:(NSDictionary<NSString *, id> * _Nullable * _Nullable)mineValuesOut;
+
 @end
 
 NS_ASSUME_NONNULL_END

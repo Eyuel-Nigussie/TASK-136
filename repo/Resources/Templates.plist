@@ -35,6 +35,13 @@
         <key>body</key>
         <string>Dispute opened on {orderRef}: {reason}.</string>
     </dict>
+    <key>cancelled</key>
+    <dict>
+        <key>title</key>
+        <string>Order cancelled</string>
+        <key>body</key>
+        <string>Order {orderRef} has been cancelled.</string>
+    </dict>
     <key>digest</key>
     <dict>
         <key>title</key>

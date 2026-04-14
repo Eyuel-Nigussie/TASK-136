@@ -109,4 +109,51 @@ static NSString * const kVersion = @"version";
              : CMSaveOutcomeResolvedAndSaved;
 }
 
++ (BOOL)detectConflictsForChanges:(NSDictionary<NSString *, id> *)changes
+                         onObject:(NSManagedObject *)object
+                      baseVersion:(int64_t)baseVersion
+                   conflictFields:(NSArray<NSString *> **)conflictFieldsOut
+                      theirValues:(NSDictionary<NSString *, id> **)theirValuesOut
+                       mineValues:(NSDictionary<NSString *, id> **)mineValuesOut {
+    if (!object || !changes) { return NO; }
+
+    NSManagedObjectContext *ctx = object.managedObjectContext;
+    if (!ctx) { return NO; }
+
+    // Refresh to get on-disk state without mutating.
+    [ctx refreshObject:object mergeChanges:NO];
+
+    NSNumber *current = [object valueForKey:kVersion];
+    int64_t currentV = current ? current.longLongValue : 0;
+
+    if (currentV == baseVersion) {
+        // No version divergence — no conflicts.
+        return NO;
+    }
+
+    // Version diverged. Identify conflicting fields WITHOUT modifying anything.
+    NSMutableArray<NSString *> *conflicts = [NSMutableArray array];
+    NSMutableDictionary<NSString *, id> *theirs = [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSString *, id> *mine = [NSMutableDictionary dictionary];
+
+    for (NSString *field in changes) {
+        id proposedValue = changes[field];
+        id onDiskValue = [object valueForKey:field];
+        BOOL equal = (proposedValue == onDiskValue) ||
+                     (proposedValue && onDiskValue && [proposedValue isEqual:onDiskValue]) ||
+                     (!proposedValue && !onDiskValue);
+        if (!equal) {
+            [conflicts addObject:field];
+            if (onDiskValue) theirs[field] = onDiskValue;
+            if (proposedValue) mine[field] = proposedValue;
+        }
+    }
+
+    if (conflictFieldsOut) { *conflictFieldsOut = [conflicts copy]; }
+    if (theirValuesOut)    { *theirValuesOut = [theirs copy]; }
+    if (mineValuesOut)     { *mineValuesOut = [mine copy]; }
+
+    return conflicts.count > 0;
+}
+
 @end

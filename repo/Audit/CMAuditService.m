@@ -157,4 +157,59 @@
     return entry;
 }
 
+#pragma mark - Explicit actor/tenant (for background/async events)
+
+- (void)recordAction:(NSString *)action
+          targetType:(NSString *)targetType
+            targetId:(NSString *)targetId
+          beforeJSON:(NSDictionary *)beforeJSON
+           afterJSON:(NSDictionary *)afterJSON
+              reason:(NSString *)reason
+         actorUserId:(NSString *)actorUserId
+           actorRole:(NSString *)actorRole
+            tenantId:(NSString *)tenantId
+          completion:(CMAuditServiceCompletion)completion {
+
+    [[CMCoreDataStack shared] performBackgroundTask:^(NSManagedObjectContext *ctx) {
+        // Bypass CMTenantContext — use explicit parameters.
+        NSError *seedErr = nil;
+        NSData *tenantSeed = [CMAuditHashChain ensureSeedForTenant:tenantId error:&seedErr];
+        if (!tenantSeed) {
+            if (completion) completion(nil, seedErr);
+            return;
+        }
+
+        CMAuditRepository *repo = [[CMAuditRepository alloc] initWithContext:ctx];
+        CMAuditEntry *latestEntry = [repo latestEntryForTenant:tenantId error:nil];
+        NSData *prevHash = latestEntry.entryHash;
+
+        CMAuditEntry *entry = [repo insertEntry];
+        entry.tenantId     = tenantId;
+        entry.actorUserId  = actorUserId;
+        entry.actorRole    = actorRole ?: @"system";
+        entry.action       = action;
+        entry.targetType   = targetType;
+        entry.targetId     = targetId;
+        entry.beforeJSON   = beforeJSON;
+        entry.afterJSON    = afterJSON;
+        entry.reason       = reason;
+        entry.prevHash     = prevHash;
+        entry.entryHash    = [CMAuditHashChain computeHashForEntry:entry
+                                                          prevHash:prevHash
+                                                        tenantSeed:tenantSeed];
+
+        [[CMAuditMetaChain shared] recordHeadChangeForTenant:tenantId
+                                                      newHead:entry.entryHash
+                                                  actorUserId:actorUserId
+                                                        error:nil];
+
+        NSError *saveErr = nil;
+        if (![ctx cm_saveWithError:&saveErr]) {
+            if (completion) completion(nil, saveErr);
+            return;
+        }
+        if (completion) completion(entry, nil);
+    }];
+}
+
 @end

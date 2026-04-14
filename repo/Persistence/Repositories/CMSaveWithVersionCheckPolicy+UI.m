@@ -5,6 +5,7 @@
 
 #import "CMSaveWithVersionCheckPolicy+UI.h"
 #import "CMDebugLogger.h"
+#import "NSManagedObjectContext+CMHelpers.h"
 
 @implementation CMSaveWithVersionCheckPolicy (UI)
 
@@ -14,45 +15,31 @@
 fromViewController:(UIViewController *)viewController
          completion:(void (^)(BOOL saved))completion {
 
-    // Phase 1: Detect conflicts WITHOUT committing any changes.
-    // Use a "detect-only" resolver that captures both sides but returns KeepTheirs
-    // so the object remains at the server's state (no user changes applied yet).
-    NSMutableDictionary<NSString *, id> *theirValues = [NSMutableDictionary dictionary];
-    NSMutableDictionary<NSString *, id> *mineValues  = [NSMutableDictionary dictionary];
-
-    NSError *error = nil;
-    NSArray<NSString *> *mergedFields = nil;
+    // Phase 1: Dry-run conflict detection — NO save, NO version bump, NO mutation.
     NSArray<NSString *> *conflictFields = nil;
+    NSDictionary<NSString *, id> *theirValues = nil;
+    NSDictionary<NSString *, id> *mineValues = nil;
 
-    CMSaveOutcome outcome = [CMSaveWithVersionCheckPolicy
-                             saveChanges:changes
-                             toObject:object
-                             baseVersion:baseVersion
-                             resolver:^CMFieldMergeResolution(NSString *field, id mine, id theirs) {
-                                 // Capture both values for UI display.
-                                 if (theirs) theirValues[field] = theirs;
-                                 if (mine)   mineValues[field]  = mine;
-                                 // Keep theirs for now — do NOT apply user changes yet.
-                                 return CMFieldMergeResolutionKeepTheirs;
-                             }
-                             mergedFields:&mergedFields
-                             conflictFields:&conflictFields
-                             error:&error];
+    BOOL hasConflict = [CMSaveWithVersionCheckPolicy
+                        detectConflictsForChanges:changes
+                        onObject:object
+                        baseVersion:baseVersion
+                        conflictFields:&conflictFields
+                        theirValues:&theirValues
+                        mineValues:&mineValues];
 
-    switch (outcome) {
-        case CMSaveOutcomeSaved:
-        case CMSaveOutcomeAutoMerged:
-            // No conflicts — changes applied cleanly.
-            CMLogInfo(@"versioncheck.ui", @"Save succeeded (outcome=%ld)", (long)outcome);
-            if (completion) completion(YES);
-            return;
-
-        case CMSaveOutcomeResolvedAndSaved:
-            // Conflicts were detected; object currently holds server values.
-            // Present the choice to the user BEFORE committing either side.
-            break;
-
-        case CMSaveOutcomeFailed:
+    if (!hasConflict) {
+        // No conflict — apply changes and save directly.
+        NSError *error = nil;
+        CMSaveOutcome outcome = [CMSaveWithVersionCheckPolicy
+                                 saveChanges:changes
+                                 toObject:object
+                                 baseVersion:baseVersion
+                                 resolver:nil
+                                 mergedFields:NULL
+                                 conflictFields:NULL
+                                 error:&error];
+        if (outcome == CMSaveOutcomeFailed) {
             CMLogError(@"versioncheck.ui", @"Save failed: %@", error);
             if (viewController) {
                 dispatch_async(dispatch_get_main_queue(), ^{
@@ -67,16 +54,15 @@ fromViewController:(UIViewController *)viewController
                 });
             }
             if (completion) completion(NO);
-            return;
-    }
-
-    // If no actual conflict fields, the auto-merge handled everything.
-    if (!conflictFields || conflictFields.count == 0) {
-        if (completion) completion(YES);
+        } else {
+            CMLogInfo(@"versioncheck.ui", @"Save succeeded (no conflicts)");
+            if (completion) completion(YES);
+        }
         return;
     }
 
-    // Phase 2: Present the conflict choice BEFORE applying user's changes.
+    // Phase 2: Conflict detected. Present choice to user BEFORE any mutation.
+    // At this point, NO changes have been applied to the object.
     dispatch_async(dispatch_get_main_queue(), ^{
         NSMutableString *message = [NSMutableString stringWithString:
             @"Another user changed the same fields you edited:\n\n"];
@@ -96,40 +82,34 @@ fromViewController:(UIViewController *)viewController
         [alert addAction:[UIAlertAction actionWithTitle:@"Keep Mine"
                                                   style:UIAlertActionStyleDefault
                                                 handler:^(UIAlertAction *action) {
-            CMLogInfo(@"versioncheck.ui", @"User chose Keep Mine for %lu fields",
-                      (unsigned long)conflictFields.count);
-            // Now apply user's values for the conflicting fields.
-            NSMutableDictionary *userChanges = [NSMutableDictionary dictionary];
-            for (NSString *field in conflictFields) {
-                id mine = mineValues[field];
-                if (mine) {
-                    userChanges[field] = mine;
-                }
+            CMLogInfo(@"versioncheck.ui", @"User chose Keep Mine");
+            // Now apply user's changes with a resolver that forces KeepMine.
+            NSNumber *curV = [object valueForKey:@"version"];
+            int64_t currentVersion = curV ? curV.longLongValue : 0;
+            NSError *saveErr = nil;
+            CMSaveOutcome result = [CMSaveWithVersionCheckPolicy
+                                    saveChanges:changes
+                                    toObject:object
+                                    baseVersion:currentVersion
+                                    resolver:^CMFieldMergeResolution(NSString *f, id m, id t) {
+                                        return CMFieldMergeResolutionKeepMine;
+                                    }
+                                    mergedFields:NULL
+                                    conflictFields:NULL
+                                    error:&saveErr];
+            if (result == CMSaveOutcomeFailed) {
+                CMLogError(@"versioncheck.ui", @"Keep Mine save failed: %@", saveErr);
             }
-            if (userChanges.count > 0) {
-                NSNumber *curV = [object valueForKey:@"version"];
-                int64_t currentVersion = curV ? curV.longLongValue : 0;
-                NSError *applyErr = nil;
-                [CMSaveWithVersionCheckPolicy saveChanges:userChanges
-                                                 toObject:object
-                                              baseVersion:currentVersion
-                                                 resolver:nil
-                                             mergedFields:NULL
-                                           conflictFields:NULL
-                                                    error:&applyErr];
-                if (applyErr) {
-                    CMLogError(@"versioncheck.ui", @"Apply mine failed: %@", applyErr);
-                }
-            }
-            if (completion) completion(YES);
+            if (completion) completion(result != CMSaveOutcomeFailed);
         }]];
 
         [alert addAction:[UIAlertAction actionWithTitle:@"Keep Theirs"
                                                   style:UIAlertActionStyleDefault
                                                 handler:^(UIAlertAction *action) {
-            CMLogInfo(@"versioncheck.ui", @"User chose Keep Theirs for %lu fields",
-                      (unsigned long)conflictFields.count);
-            // Server values are already in place — nothing to do.
+            CMLogInfo(@"versioncheck.ui", @"User chose Keep Theirs");
+            // Server values are already on disk — nothing to write.
+            // Just refresh the object to reflect the on-disk state.
+            [object.managedObjectContext refreshObject:object mergeChanges:NO];
             if (completion) completion(YES);
         }]];
 
