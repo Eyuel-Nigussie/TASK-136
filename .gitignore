@@ -47,3 +47,6 @@ repo/.docker-host-path
 
 # ──── Misc ────
 *.log
+**/MODULE.md
+.dockerignore
+repo/scripts/entrypoint.sh
