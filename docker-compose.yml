@@ -1,0 +1,47 @@
+# CourierMatch iOS -- Docker Compose
+#
+# First-time setup: ./scripts/docker-setup.sh
+#
+# Usage:
+#   docker compose run build
+#   docker compose run test
+#   docker compose run test-unit
+#   docker compose run test-integration
+#   docker compose run app-run
+
+services:
+  couriermatch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - SIMULATOR=iPhone 17 Pro
+
+  build:
+    extends:
+      service: couriermatch
+    command: build
+
+  test:
+    extends:
+      service: couriermatch
+    command: test
+
+  test-unit:
+    extends:
+      service: couriermatch
+    command: test-unit
+
+  test-integration:
+    extends:
+      service: couriermatch
+    command: test-integration
+
+  app-run:
+    extends:
+      service: couriermatch
+    command: run

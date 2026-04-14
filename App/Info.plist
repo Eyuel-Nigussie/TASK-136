@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Step 11: Scene configuration for multi-window support.
+         NSCameraUsageDescription, NSLocationWhenInUseUsageDescription,
+         NSFaceIDUsageDescription added in subsequent steps. -->
+    <key>NSCameraUsageDescription</key>
+    <string>CourierMatch needs camera access to capture delivery proof photos and signatures.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>CourierMatch uses Face ID to secure your session and protect sensitive data.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>CourierMatch uses your location to prefill your itinerary origin address.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>CourierMatch needs photo library access to attach delivery proof images.</string>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <true/>
+        <key>UISceneConfigurations</key>
+        <dict>
+            <key>UIWindowSceneSessionRoleApplication</key>
+            <array>
+                <dict>
+                    <key>UISceneConfigurationName</key>
+                    <string>Default Configuration</string>
+                    <key>UISceneDelegateClassName</key>
+                    <string>SceneDelegate</string>
+                </dict>
+            </array>
+        </dict>
+    </dict>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.eaglepoint.couriermatch.match.refresh</string>
+        <string>com.eaglepoint.couriermatch.attachments.cleanup</string>
+        <string>com.eaglepoint.couriermatch.notifications.purge</string>
+        <string>com.eaglepoint.couriermatch.audit.verify</string>
+    </array>
+    <key>CFBundleDisplayName</key>
+    <string>CourierMatch</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.eaglepoint.couriermatch</string>
+    <key>CFBundleName</key>
+    <string>CourierMatch</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+    Full name (lowercased) → USPS 2-letter abbreviation.
+    Consumed by CMAddressNormalizer. Includes DC and territories.
+-->
+<dict>
+    <key>alabama</key><string>AL</string>
+    <key>alaska</key><string>AK</string>
+    <key>arizona</key><string>AZ</string>
+    <key>arkansas</key><string>AR</string>
+    <key>california</key><string>CA</string>
+    <key>colorado</key><string>CO</string>
+    <key>connecticut</key><string>CT</string>
+    <key>delaware</key><string>DE</string>
+    <key>district of columbia</key><string>DC</string>
+    <key>washington dc</key><string>DC</string>
+    <key>florida</key><string>FL</string>
+    <key>georgia</key><string>GA</string>
+    <key>hawaii</key><string>HI</string>
+    <key>idaho</key><string>ID</string>
+    <key>illinois</key><string>IL</string>
+    <key>indiana</key><string>IN</string>
+    <key>iowa</key><string>IA</string>
+    <key>kansas</key><string>KS</string>
+    <key>kentucky</key><string>KY</string>
+    <key>louisiana</key><string>LA</string>
+    <key>maine</key><string>ME</string>
+    <key>maryland</key><string>MD</string>
+    <key>massachusetts</key><string>MA</string>
+    <key>michigan</key><string>MI</string>
+    <key>minnesota</key><string>MN</string>
+    <key>mississippi</key><string>MS</string>
+    <key>missouri</key><string>MO</string>
+    <key>montana</key><string>MT</string>
+    <key>nebraska</key><string>NE</string>
+    <key>nevada</key><string>NV</string>
+    <key>new hampshire</key><string>NH</string>
+    <key>new jersey</key><string>NJ</string>
+    <key>new mexico</key><string>NM</string>
+    <key>new york</key><string>NY</string>
+    <key>north carolina</key><string>NC</string>
+    <key>north dakota</key><string>ND</string>
+    <key>ohio</key><string>OH</string>
+    <key>oklahoma</key><string>OK</string>
+    <key>oregon</key><string>OR</string>
+    <key>pennsylvania</key><string>PA</string>
+    <key>rhode island</key><string>RI</string>
+    <key>south carolina</key><string>SC</string>
+    <key>south dakota</key><string>SD</string>
+    <key>tennessee</key><string>TN</string>
+    <key>texas</key><string>TX</string>
+    <key>utah</key><string>UT</string>
+    <key>vermont</key><string>VT</string>
+    <key>virginia</key><string>VA</string>
+    <key>washington</key><string>WA</string>
+    <key>west virginia</key><string>WV</string>
+    <key>wisconsin</key><string>WI</string>
+    <key>wyoming</key><string>WY</string>
+    <key>puerto rico</key><string>PR</string>
+    <key>guam</key><string>GU</string>
+    <key>american samoa</key><string>AS</string>
+    <key>us virgin islands</key><string>VI</string>
+    <key>northern mariana islands</key><string>MP</string>
+</dict>
+</plist>

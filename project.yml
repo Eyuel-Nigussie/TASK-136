@@ -1,0 +1,209 @@
+name: CourierMatch
+options:
+  bundleIdPrefix: com.eaglepoint
+  deploymentTarget:
+    iOS: "15.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: false
+  createIntermediateGroups: true
+
+settings:
+  base:
+    CLANG_ENABLE_OBJC_ARC: YES
+    CLANG_ENABLE_MODULES: YES
+    GCC_WARN_ABOUT_RETURN_TYPE: YES_ERROR
+    GCC_WARN_UNINITIALIZED_AUTOS: YES_AGGRESSIVE
+    CLANG_WARN_DOCUMENTATION_COMMENTS: YES
+    CLANG_WARN_EMPTY_BODY: YES
+    CLANG_WARN_BOOL_CONVERSION: YES
+    CLANG_WARN_CONSTANT_CONVERSION: YES
+    CLANG_WARN_ENUM_CONVERSION: YES
+    CLANG_WARN_INT_CONVERSION: YES
+    CLANG_WARN_UNREACHABLE_CODE: YES
+    ENABLE_STRICT_OBJC_MSGSEND: YES
+
+targets:
+  CourierMatch:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: App
+        type: group
+      - path: Auth
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Itinerary
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Orders
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Match
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Notifications
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Scoring
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Appeals
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Audit
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Attachments
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Admin
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: BackgroundTasks
+        type: group
+      - path: Common
+        type: group
+        excludes:
+          - "**/MODULE.md"
+      - path: Persistence
+        type: group
+        excludes:
+          - "**/MODULE.md"
+      - path: Resources
+        type: group
+    settings:
+      base:
+        INFOPLIST_FILE: App/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.eaglepoint.couriermatch
+        PRODUCT_NAME: CourierMatch
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)"
+          - "$(SRCROOT)/App"
+          - "$(SRCROOT)/Auth"
+          - "$(SRCROOT)/Itinerary"
+          - "$(SRCROOT)/Orders"
+          - "$(SRCROOT)/Match"
+          - "$(SRCROOT)/Notifications"
+          - "$(SRCROOT)/Scoring"
+          - "$(SRCROOT)/Appeals"
+          - "$(SRCROOT)/Audit"
+          - "$(SRCROOT)/Attachments"
+          - "$(SRCROOT)/Admin"
+          - "$(SRCROOT)/BackgroundTasks"
+          - "$(SRCROOT)/Common/Errors"
+          - "$(SRCROOT)/Common/Masking"
+          - "$(SRCROOT)/Common/Normalization"
+          - "$(SRCROOT)/Common/Theming"
+          - "$(SRCROOT)/Common/Haptics"
+          - "$(SRCROOT)/Common/Accessibility"
+          - "$(SRCROOT)/Persistence/CoreData"
+          - "$(SRCROOT)/Persistence/Keychain"
+          - "$(SRCROOT)/Persistence/Files"
+          - "$(SRCROOT)/Persistence/Repositories"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies: []
+    preBuildScripts: []
+    postBuildScripts: []
+
+  CourierMatchTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: Tests/Unit
+        type: group
+        excludes:
+          - "MODULE.md"
+      - path: Tests/Integration
+        type: group
+        excludes:
+          - "MODULE.md"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.eaglepoint.couriermatch.tests
+        PRODUCT_NAME: CourierMatchTests
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)"
+          - "$(SRCROOT)/App"
+          - "$(SRCROOT)/Auth"
+          - "$(SRCROOT)/Itinerary"
+          - "$(SRCROOT)/Orders"
+          - "$(SRCROOT)/Match"
+          - "$(SRCROOT)/Notifications"
+          - "$(SRCROOT)/Scoring"
+          - "$(SRCROOT)/Appeals"
+          - "$(SRCROOT)/Audit"
+          - "$(SRCROOT)/Attachments"
+          - "$(SRCROOT)/Admin"
+          - "$(SRCROOT)/BackgroundTasks"
+          - "$(SRCROOT)/Common/Errors"
+          - "$(SRCROOT)/Common/Masking"
+          - "$(SRCROOT)/Common/Normalization"
+          - "$(SRCROOT)/Common/Theming"
+          - "$(SRCROOT)/Common/Haptics"
+          - "$(SRCROOT)/Common/Accessibility"
+          - "$(SRCROOT)/Persistence/CoreData"
+          - "$(SRCROOT)/Persistence/Keychain"
+          - "$(SRCROOT)/Persistence/Files"
+          - "$(SRCROOT)/Persistence/Repositories"
+          - "$(SRCROOT)/Tests/Unit"
+          - "$(SRCROOT)/Tests/Integration"
+    dependencies:
+      - target: CourierMatch
+
+  CourierMatchUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: Tests/UI
+        type: group
+        excludes:
+          - "MODULE.md"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.eaglepoint.couriermatch.uitests
+        PRODUCT_NAME: CourierMatchUITests
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+    dependencies:
+      - target: CourierMatch
+
+schemes:
+  CourierMatch:
+    build:
+      targets:
+        CourierMatch: all
+        CourierMatchTests: [test]
+        CourierMatchUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CourierMatchTests
+        - CourierMatchUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug

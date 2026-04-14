@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+    Templates.plist — Step 1 placeholder for notification templates per design.md §6.1.
+    Real variable resolution is implemented by CMNotificationTemplateRenderer in Step 6.
+    Missing variables must render as "[n/a]" rather than crash.
+-->
+<dict>
+    <key>assigned</key>
+    <dict>
+        <key>title</key>
+        <string>Order assigned</string>
+        <key>body</key>
+        <string>Order {orderRef} assigned to {courierName}.</string>
+    </dict>
+    <key>picked_up</key>
+    <dict>
+        <key>title</key>
+        <string>Pickup recorded</string>
+        <key>body</key>
+        <string>Order {orderRef} picked up at {pickupTime}.</string>
+    </dict>
+    <key>delivered</key>
+    <dict>
+        <key>title</key>
+        <string>Delivery complete</string>
+        <key>body</key>
+        <string>Order {orderRef} delivered at {deliveredTime}.</string>
+    </dict>
+    <key>dispute_opened</key>
+    <dict>
+        <key>title</key>
+        <string>Dispute opened</string>
+        <key>body</key>
+        <string>Dispute opened on {orderRef}: {reason}.</string>
+    </dict>
+    <key>digest</key>
+    <dict>
+        <key>title</key>
+        <string>Multiple updates</string>
+        <key>body</key>
+        <string>{count} updates in the last minute — tap to review.</string>
+    </dict>
+</dict>
+</plist>

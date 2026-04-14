@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+
+# CourierMatch CLI — same interface as `docker run couriermatch <command>`
+# iOS requires macOS + Xcode natively. This runs commands directly.
+
+cd "$(dirname "$0")"
+
+ACTION="${1:-help}"
+
+case "${ACTION}" in
+    bootstrap)   ./scripts/bootstrap.sh ;;
+    build)       make setup && make build ;;
+    test)        make setup && make test ;;
+    test-unit)   make setup && make test-unit ;;
+    test-integration) make setup && make test-integration ;;
+    test-ui)     make setup && make test-ui ;;
+    run)         make setup && make run ;;
+    clean)       make clean ;;
+    help|*)
+        echo ""
+        echo "CourierMatch iOS CLI"
+        echo ""
+        echo "Usage: ./courier <command>"
+        echo ""
+        echo "Commands:"
+        echo "  build             Build for iOS Simulator"
+        echo "  test              Run all 299 tests"
+        echo "  test-unit         Run unit tests only"
+        echo "  test-integration  Run integration tests only"
+        echo "  test-ui           Run UI tests"
+        echo "  run               Build + launch on simulator"
+        echo "  bootstrap         Install deps + generate project"
+        echo "  clean             Remove build artifacts"
+        echo "  help              Show this message"
+        echo ""
+        ;;
+esac

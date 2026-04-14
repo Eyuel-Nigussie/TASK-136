@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+    ZIP prefix (first 3 digits) → IANA time-zone identifier. Seed dataset —
+    expanded in a data refresh task. See questions.md Q15.
+    Consumed by CMTimeZoneResolver; unknown prefixes fall back to the
+    device's current time zone with a warning.
+-->
+<dict>
+    <key>default</key><string>America/New_York</string>
+
+    <!-- Eastern -->
+    <key>010</key><string>America/New_York</string>
+    <key>020</key><string>America/New_York</string>
+    <key>100</key><string>America/New_York</string>
+    <key>101</key><string>America/New_York</string>
+    <key>110</key><string>America/New_York</string>
+    <key>190</key><string>America/New_York</string>
+    <key>200</key><string>America/New_York</string>
+    <key>220</key><string>America/New_York</string>
+    <key>280</key><string>America/New_York</string>
+    <key>300</key><string>America/New_York</string>
+    <key>331</key><string>America/New_York</string>
+    <key>350</key><string>America/New_York</string>
+
+    <!-- Central -->
+    <key>440</key><string>America/Chicago</string>
+    <key>600</key><string>America/Chicago</string>
+    <key>630</key><string>America/Chicago</string>
+    <key>660</key><string>America/Chicago</string>
+    <key>700</key><string>America/Chicago</string>
+    <key>750</key><string>America/Chicago</string>
+    <key>770</key><string>America/Chicago</string>
+
+    <!-- Mountain -->
+    <key>800</key><string>America/Denver</string>
+    <key>801</key><string>America/Denver</string>
+    <key>840</key><string>America/Denver</string>
+    <key>850</key><string>America/Phoenix</string>
+    <key>870</key><string>America/Denver</string>
+    <key>590</key><string>America/Denver</string>
+
+    <!-- Pacific -->
+    <key>900</key><string>America/Los_Angeles</string>
+    <key>941</key><string>America/Los_Angeles</string>
+    <key>980</key><string>America/Los_Angeles</string>
+    <key>970</key><string>America/Los_Angeles</string>
+
+    <!-- Alaska / Hawaii -->
+    <key>995</key><string>America/Anchorage</string>
+    <key>996</key><string>America/Anchorage</string>
+    <key>967</key><string>Pacific/Honolulu</string>
+    <key>968</key><string>Pacific/Honolulu</string>
+</dict>
+</plist>

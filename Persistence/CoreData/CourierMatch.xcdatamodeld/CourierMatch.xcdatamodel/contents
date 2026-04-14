@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22269" systemVersion="23A344" minimumToolsVersion="Automatic" sourceLanguage="Objective-C" userDefinedModelVersionIdentifier="">
+
+    <!-- ====== MAIN CONFIG ENTITIES ====== -->
+
+    <entity name="Tenant" representedClassName="CMTenant" syncable="YES">
+        <attribute name="tenantId"   attributeType="String"/>
+        <attribute name="name"       attributeType="String"/>
+        <attribute name="status"     attributeType="String" defaultValueString="active"/>
+        <attribute name="configJSON" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="createdAt"  attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"  attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"  optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"  optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"  optional="YES" attributeType="String"/>
+        <attribute name="version"    attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="tenantId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="UserAccount" representedClassName="CMUserAccount" syncable="YES">
+        <attribute name="userId"              attributeType="String"/>
+        <attribute name="tenantId"            attributeType="String"/>
+        <attribute name="username"            attributeType="String"/>
+        <attribute name="displayName"         optional="YES" attributeType="String"/>
+        <attribute name="passwordHash"        optional="YES" attributeType="Binary"/>
+        <attribute name="passwordSalt"        optional="YES" attributeType="Binary"/>
+        <attribute name="passwordIterations"  attributeType="Integer 64" defaultValueString="600000" usesScalarValueType="YES"/>
+        <attribute name="passwordUpdatedAt"   optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="role"                attributeType="String" defaultValueString="courier"/>
+        <attribute name="status"              attributeType="String" defaultValueString="active"/>
+        <attribute name="failedAttempts"      attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="lockUntil"           optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="biometricEnabled"    attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="biometricRefId"      optional="YES" attributeType="String"/>
+        <attribute name="lastLoginAt"         optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="forceLogoutAt"       optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdAt"           attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"           attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"           optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"           optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"           optional="YES" attributeType="String"/>
+        <attribute name="version"             attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="userId"/></uniquenessConstraint>
+            <uniquenessConstraint><constraint value="tenantId"/><constraint value="username"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="LoginHistory" representedClassName="CMLoginHistory" syncable="YES">
+        <attribute name="entryId"      attributeType="String"/>
+        <attribute name="userId"       attributeType="String"/>
+        <attribute name="tenantId"     attributeType="String"/>
+        <attribute name="deviceModel"  optional="YES" attributeType="String"/>
+        <attribute name="osVersion"    optional="YES" attributeType="String"/>
+        <attribute name="appVersion"   optional="YES" attributeType="String"/>
+        <attribute name="loggedInAt"   attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="loggedOutAt"  optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="outcome"      attributeType="String" defaultValueString="success"/>
+        <attribute name="createdAt"    attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"    attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"    optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"    optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"    optional="YES" attributeType="String"/>
+        <attribute name="version"      attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="entryId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="Order" representedClassName="CMOrder" syncable="YES">
+        <attribute name="orderId"                  attributeType="String"/>
+        <attribute name="tenantId"                 attributeType="String"/>
+        <attribute name="externalOrderRef"         attributeType="String"/>
+        <attribute name="pickupAddress"            optional="YES" attributeType="Transformable" valueTransformerName="CMAddressTransformer" customClassName="CMAddress"/>
+        <attribute name="dropoffAddress"           optional="YES" attributeType="Transformable" valueTransformerName="CMAddressTransformer" customClassName="CMAddress"/>
+        <attribute name="pickupWindowStart"        optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="pickupWindowEnd"          optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dropoffWindowStart"       optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dropoffWindowEnd"         optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="pickupTimeZoneIdentifier" optional="YES" attributeType="String"/>
+        <attribute name="dropoffTimeZoneIdentifier" optional="YES" attributeType="String"/>
+        <attribute name="parcelVolumeL"            attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="parcelWeightKg"           attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="requiresVehicleType"      optional="YES" attributeType="String"/>
+        <attribute name="status"                   attributeType="String" defaultValueString="new"/>
+        <attribute name="assignedCourierId"        optional="YES" attributeType="String"/>
+        <attribute name="customerNotes"            optional="YES" attributeType="String"/>
+        <attribute name="sensitiveCustomerId"      optional="YES" attributeType="Transformable" valueTransformerName="CMEncryptedValueTransformer"/>
+        <attribute name="createdAt"                attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"                attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"                optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"                optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"                optional="YES" attributeType="String"/>
+        <attribute name="version"                  attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <fetchIndex name="byStatusIndex">
+            <fetchIndexElement property="status" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byPickupWindowIndex">
+            <fetchIndexElement property="pickupWindowStart" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="orderId"/></uniquenessConstraint>
+            <uniquenessConstraint><constraint value="tenantId"/><constraint value="externalOrderRef"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="Itinerary" representedClassName="CMItinerary" syncable="YES">
+        <attribute name="itineraryId"             attributeType="String"/>
+        <attribute name="tenantId"                attributeType="String"/>
+        <attribute name="courierId"               attributeType="String"/>
+        <attribute name="originAddress"           optional="YES" attributeType="Transformable" valueTransformerName="CMAddressTransformer" customClassName="CMAddress"/>
+        <attribute name="destinationAddress"      optional="YES" attributeType="Transformable" valueTransformerName="CMAddressTransformer" customClassName="CMAddress"/>
+        <attribute name="departureWindowStart"    optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="departureWindowEnd"      optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="vehicleType"             attributeType="String" defaultValueString="car"/>
+        <attribute name="vehicleCapacityVolumeL"  attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="vehicleCapacityWeightKg" attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="onTheWayStops"           optional="YES" attributeType="Transformable" valueTransformerName="CMAddressArrayTransformer"/>
+        <attribute name="status"                  attributeType="String" defaultValueString="draft"/>
+        <attribute name="createdAt"               attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"               attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"               optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"               optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"               optional="YES" attributeType="String"/>
+        <attribute name="version"                 attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <fetchIndex name="byDepartureWindowIndex">
+            <fetchIndexElement property="departureWindowStart" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="itineraryId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="MatchCandidate" representedClassName="CMMatchCandidate" syncable="YES">
+        <attribute name="candidateId"            attributeType="String"/>
+        <attribute name="tenantId"               attributeType="String"/>
+        <attribute name="itineraryId"            attributeType="String"/>
+        <attribute name="orderId"                attributeType="String"/>
+        <attribute name="score"                  attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="detourMiles"            attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="timeOverlapMinutes"     attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="capacityRisk"           attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="explanationComponents"  optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="rankPosition"           attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="computedAt"             optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="stale"                  attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="createdAt"              attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"              attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"              optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"              optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"              optional="YES" attributeType="String"/>
+        <attribute name="version"                attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <fetchIndex name="byItineraryIndex">
+            <fetchIndexElement property="itineraryId" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="candidateId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="NotificationItem" representedClassName="CMNotificationItem" syncable="YES">
+        <attribute name="notificationId"     attributeType="String"/>
+        <attribute name="tenantId"           attributeType="String"/>
+        <attribute name="subjectEntityType"  optional="YES" attributeType="String"/>
+        <attribute name="subjectEntityId"    optional="YES" attributeType="String"/>
+        <attribute name="templateKey"        attributeType="String"/>
+        <attribute name="payloadJSON"        optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="renderedTitle"      optional="YES" attributeType="String"/>
+        <attribute name="renderedBody"       optional="YES" attributeType="String"/>
+        <attribute name="recipientUserId"    attributeType="String"/>
+        <attribute name="status"             attributeType="String" defaultValueString="active"/>
+        <attribute name="childIds"           optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="rateLimitBucket"    optional="YES" attributeType="String"/>
+        <attribute name="createdAt"          attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="readAt"             optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="ackedAt"            optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"          attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"          optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"          optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"          optional="YES" attributeType="String"/>
+        <attribute name="version"            attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <fetchIndex name="byRecipientCreatedIndex">
+            <fetchIndexElement property="recipientUserId" type="Binary" order="ascending"/>
+            <fetchIndexElement property="createdAt" type="Binary" order="descending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="notificationId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="Dispute" representedClassName="CMDispute" syncable="YES">
+        <attribute name="disputeId"      attributeType="String"/>
+        <attribute name="tenantId"       attributeType="String"/>
+        <attribute name="orderId"        attributeType="String"/>
+        <attribute name="openedBy"       attributeType="String"/>
+        <attribute name="openedAt"       attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="reason"         attributeType="String"/>
+        <attribute name="reasonCategory" optional="YES" attributeType="String"/>
+        <attribute name="status"         attributeType="String" defaultValueString="open"/>
+        <attribute name="reviewerId"     optional="YES" attributeType="String"/>
+        <attribute name="resolution"     optional="YES" attributeType="String"/>
+        <attribute name="closedAt"       optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdAt"      attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"      attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"      optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"      optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"      optional="YES" attributeType="String"/>
+        <attribute name="version"        attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="disputeId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="RubricTemplate" representedClassName="CMRubricTemplate" syncable="YES">
+        <attribute name="rubricId"       attributeType="String"/>
+        <attribute name="tenantId"       attributeType="String"/>
+        <attribute name="name"           attributeType="String"/>
+        <attribute name="active"         attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="rubricVersion"  attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="items"          optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="createdAt"      attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"      attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"      optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"      optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"      optional="YES" attributeType="String"/>
+        <attribute name="version"        attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="rubricId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="DeliveryScorecard" representedClassName="CMDeliveryScorecard" syncable="YES">
+        <attribute name="scorecardId"            attributeType="String"/>
+        <attribute name="tenantId"               attributeType="String"/>
+        <attribute name="orderId"                attributeType="String"/>
+        <attribute name="courierId"              attributeType="String"/>
+        <attribute name="rubricId"               attributeType="String"/>
+        <attribute name="rubricVersion"          attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="supersedesScorecardId"  optional="YES" attributeType="String"/>
+        <attribute name="automatedResults"       optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="manualResults"          optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="totalPoints"            attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="maxPoints"              attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="finalizedAt"            optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="finalizedBy"            optional="YES" attributeType="String"/>
+        <attribute name="createdAt"              attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"              attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"              optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"              optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"              optional="YES" attributeType="String"/>
+        <attribute name="version"                attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="scorecardId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="Appeal" representedClassName="CMAppeal" syncable="YES">
+        <attribute name="appealId"                 attributeType="String"/>
+        <attribute name="tenantId"                 attributeType="String"/>
+        <attribute name="scorecardId"              attributeType="String"/>
+        <attribute name="disputeId"                optional="YES" attributeType="String"/>
+        <attribute name="reason"                   attributeType="String"/>
+        <attribute name="openedBy"                 attributeType="String"/>
+        <attribute name="openedAt"                 attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="assignedReviewerId"       optional="YES" attributeType="String"/>
+        <attribute name="beforeScoreSnapshotJSON"  optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="afterScoreSnapshotJSON"   optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="decision"                 optional="YES" attributeType="String"/>
+        <attribute name="decidedBy"                optional="YES" attributeType="String"/>
+        <attribute name="decidedAt"                optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="decisionNotes"            optional="YES" attributeType="String"/>
+        <attribute name="monetaryImpact"           attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="auditChainHead"           optional="YES" attributeType="String"/>
+        <attribute name="createdAt"                attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"                attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"                optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"                optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"                optional="YES" attributeType="String"/>
+        <attribute name="version"                  attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="appealId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="AuditEntry" representedClassName="CMAuditEntry" syncable="YES">
+        <attribute name="entryId"      attributeType="String"/>
+        <attribute name="tenantId"     attributeType="String"/>
+        <attribute name="actorUserId"  attributeType="String"/>
+        <attribute name="actorRole"    attributeType="String"/>
+        <attribute name="action"       attributeType="String"/>
+        <attribute name="targetType"   optional="YES" attributeType="String"/>
+        <attribute name="targetId"     optional="YES" attributeType="String"/>
+        <attribute name="beforeJSON"   optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="afterJSON"    optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromData"/>
+        <attribute name="reason"       optional="YES" attributeType="String"/>
+        <attribute name="createdAt"    attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="prevHash"     optional="YES" attributeType="Binary"/>
+        <attribute name="entryHash"    optional="YES" attributeType="Binary"/>
+        <fetchIndex name="byCreatedAtIndex">
+            <fetchIndexElement property="createdAt" type="Binary" order="descending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="entryId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="Attachment" representedClassName="CMAttachment" syncable="YES">
+        <attribute name="attachmentId"        attributeType="String"/>
+        <attribute name="tenantId"            attributeType="String"/>
+        <attribute name="ownerType"           attributeType="String"/>
+        <attribute name="ownerId"             attributeType="String"/>
+        <attribute name="filename"            attributeType="String"/>
+        <attribute name="mimeType"            attributeType="String"/>
+        <attribute name="sizeBytes"           attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="sha256Hex"           optional="YES" attributeType="String"/>
+        <attribute name="capturedAt"          attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="expiresAt"           attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="storagePathRelative" attributeType="String"/>
+        <attribute name="capturedByUserId"    attributeType="String"/>
+        <attribute name="hashStatus"          attributeType="String" defaultValueString="pending"/>
+        <attribute name="createdAt"           attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt"           attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedAt"           optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdBy"           optional="YES" attributeType="String"/>
+        <attribute name="updatedBy"           optional="YES" attributeType="String"/>
+        <attribute name="version"             attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <fetchIndex name="byExpiresAtIndex">
+            <fetchIndexElement property="expiresAt" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="attachmentId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <!-- ====== WORK (SIDECAR) CONFIG ENTITIES ====== -->
+
+    <entity name="WorkAttachmentExpiry" representedClassName="CMWorkAttachmentExpiry" syncable="YES">
+        <attribute name="attachmentId"  attributeType="String"/>
+        <attribute name="tenantId"      attributeType="String"/>
+        <attribute name="storagePath"   attributeType="String"/>
+        <attribute name="expiresAt"     attributeType="Date" usesScalarValueType="NO"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="attachmentId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="WorkNotificationExpiry" representedClassName="CMWorkNotificationExpiry" syncable="YES">
+        <attribute name="notificationId" attributeType="String"/>
+        <attribute name="tenantId"       attributeType="String"/>
+        <attribute name="expiresAt"      attributeType="Date" usesScalarValueType="NO"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="notificationId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <entity name="WorkAuditCursor" representedClassName="CMWorkAuditCursor" syncable="YES">
+        <attribute name="tenantId"             attributeType="String"/>
+        <attribute name="lastVerifiedEntryId"  optional="YES" attributeType="String"/>
+        <attribute name="lastVerifiedAt"       optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint><constraint value="tenantId"/></uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+
+    <!-- ====== CONFIGURATIONS ====== -->
+
+    <configuration name="Main">
+        <memberEntity name="Tenant"/>
+        <memberEntity name="UserAccount"/>
+        <memberEntity name="LoginHistory"/>
+        <memberEntity name="Order"/>
+        <memberEntity name="Itinerary"/>
+        <memberEntity name="MatchCandidate"/>
+        <memberEntity name="NotificationItem"/>
+        <memberEntity name="Dispute"/>
+        <memberEntity name="RubricTemplate"/>
+        <memberEntity name="DeliveryScorecard"/>
+        <memberEntity name="Appeal"/>
+        <memberEntity name="AuditEntry"/>
+        <memberEntity name="Attachment"/>
+    </configuration>
+    <configuration name="Work">
+        <memberEntity name="WorkAttachmentExpiry"/>
+        <memberEntity name="WorkNotificationExpiry"/>
+        <memberEntity name="WorkAuditCursor"/>
+    </configuration>
+
+    <elements>
+        <element name="Tenant"                  positionX="0"   positionY="0"   width="128" height="150"/>
+        <element name="UserAccount"             positionX="160" positionY="0"   width="128" height="380"/>
+        <element name="LoginHistory"            positionX="320" positionY="0"   width="128" height="240"/>
+        <element name="Order"                   positionX="0"   positionY="200" width="128" height="400"/>
+        <element name="Itinerary"               positionX="160" positionY="200" width="128" height="320"/>
+        <element name="MatchCandidate"          positionX="320" positionY="200" width="128" height="300"/>
+        <element name="NotificationItem"        positionX="0"   positionY="500" width="128" height="340"/>
+        <element name="Dispute"                 positionX="160" positionY="500" width="128" height="280"/>
+        <element name="RubricTemplate"          positionX="320" positionY="500" width="128" height="220"/>
+        <element name="DeliveryScorecard"       positionX="0"   positionY="800" width="128" height="320"/>
+        <element name="Appeal"                  positionX="160" positionY="800" width="128" height="360"/>
+        <element name="AuditEntry"              positionX="320" positionY="800" width="128" height="240"/>
+        <element name="Attachment"              positionX="0"   positionY="1100" width="128" height="320"/>
+        <element name="WorkAttachmentExpiry"    positionX="160" positionY="1100" width="128" height="100"/>
+        <element name="WorkNotificationExpiry"  positionX="320" positionY="1100" width="128" height="100"/>
+        <element name="WorkAuditCursor"         positionX="480" positionY="1100" width="128" height="100"/>
+    </elements>
+</model>

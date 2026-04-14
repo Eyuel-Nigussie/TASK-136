@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<!-- New York City metro -->
+	<string>100</string>
+	<string>101</string>
+	<string>102</string>
+	<string>103</string>
+	<string>104</string>
+	<string>110</string>
+	<string>111</string>
+	<string>112</string>
+	<string>113</string>
+	<string>114</string>
+	<string>116</string>
+	<!-- Los Angeles metro -->
+	<string>900</string>
+	<string>901</string>
+	<string>902</string>
+	<string>903</string>
+	<string>904</string>
+	<string>905</string>
+	<string>906</string>
+	<string>907</string>
+	<string>908</string>
+	<string>910</string>
+	<string>911</string>
+	<string>912</string>
+	<string>913</string>
+	<string>914</string>
+	<string>915</string>
+	<string>916</string>
+	<string>917</string>
+	<string>918</string>
+	<!-- Chicago metro -->
+	<string>606</string>
+	<string>607</string>
+	<string>608</string>
+	<!-- San Francisco / Bay Area -->
+	<string>940</string>
+	<string>941</string>
+	<string>943</string>
+	<string>944</string>
+	<string>945</string>
+	<string>946</string>
+	<string>947</string>
+	<string>948</string>
+	<string>949</string>
+	<string>950</string>
+	<string>951</string>
+	<!-- Boston metro -->
+	<string>021</string>
+	<string>022</string>
+	<!-- Washington DC metro -->
+	<string>200</string>
+	<string>201</string>
+	<string>202</string>
+	<string>203</string>
+	<string>204</string>
+	<string>205</string>
+	<!-- Philadelphia metro -->
+	<string>190</string>
+	<string>191</string>
+	<!-- Houston metro -->
+	<string>770</string>
+	<string>771</string>
+	<string>772</string>
+	<string>773</string>
+	<!-- Dallas metro -->
+	<string>750</string>
+	<string>751</string>
+	<string>752</string>
+	<string>753</string>
+	<!-- Miami metro -->
+	<string>331</string>
+	<string>332</string>
+	<string>333</string>
+	<!-- Seattle metro -->
+	<string>980</string>
+	<string>981</string>
+	<!-- Denver metro -->
+	<string>802</string>
+	<!-- Atlanta metro -->
+	<string>303</string>
+	<string>304</string>
+	<!-- Minneapolis metro -->
+	<string>554</string>
+	<string>553</string>
+	<!-- Detroit metro -->
+	<string>481</string>
+	<string>482</string>
+</array>
+</plist>

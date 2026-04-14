@@ -1,0 +1,6 @@
+CourierMatch.xcodeproj/
+DerivedData/
+build/
+.git/
+*.xcuserdata
+.DS_Store

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+    Step 1 placeholder role → allowed actions map (design.md §4.4).
+    Consumed by CMPermissionMatrix in Step 3. This is the authoritative RBAC
+    definition shipped with the binary; Admin may restrict further per tenant
+    but may not expand it.
+-->
+<dict>
+    <key>courier</key>
+    <array>
+        <string>itineraries.create</string>
+        <string>itineraries.edit_own</string>
+        <string>orders.view_assigned</string>
+        <string>orders.accept_match</string>
+        <string>orders.update_status_own</string>
+        <string>attachments.upload_own</string>
+        <string>notifications.read_own</string>
+    </array>
+    <key>dispatcher</key>
+    <array>
+        <string>orders.view_all</string>
+        <string>orders.assign</string>
+        <string>orders.override_match</string>
+        <string>itineraries.view_all</string>
+        <string>notifications.read_all</string>
+    </array>
+    <key>reviewer</key>
+    <array>
+        <string>disputes.view</string>
+        <string>appeals.grade_manual</string>
+        <string>appeals.decide</string>
+        <string>scorecards.view</string>
+    </array>
+    <key>cs</key>
+    <array>
+        <string>orders.view_all</string>
+        <string>orders.edit_notes</string>
+        <string>disputes.open</string>
+        <string>attachments.upload_dispute</string>
+    </array>
+    <key>finance</key>
+    <array>
+        <string>appeals.close_monetary</string>
+        <string>appeals.view</string>
+        <string>exports.finance</string>
+    </array>
+    <key>admin</key>
+    <array>
+        <string>tenants.manage</string>
+        <string>users.manage</string>
+        <string>users.role_change</string>
+        <string>users.force_logout</string>
+        <string>users.physical_purge</string>
+        <string>rubrics.publish</string>
+        <string>allowlists.configure</string>
+        <string>diagnostics.view</string>
+        <string>audit.verify</string>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,10 @@
+/*
+  Localizable.strings
+  CourierMatch
+
+  Step 1 placeholder. Real strings land alongside the UI layer in Step 11.
+  File uses UTF-16 in shipping builds; plain ASCII is safe here.
+*/
+
+"app.name" = "CourierMatch";
+"launch.loading" = "Loading…";
