@@ -9,6 +9,7 @@
 #import "CMCoreDataStack.h"
 #import "CMTenantContext.h"
 #import "CMPermissionChangeAuditor.h"
+#import "CMAccountService.h"
 #import "CMAuditService.h"
 #import "CMAuditVerifier.h"
 #import "CMAuthService.h"
@@ -300,21 +301,8 @@ static NSString * const kActionCellId = @"ActionCell";
 }
 
 - (void)deleteAccount:(CMUserAccount *)user {
-    // Service-layer admin role enforcement
-    NSString *currentRole = [CMTenantContext shared].currentRole;
-    if (![currentRole isEqualToString:CMUserRoleAdmin]) {
-        [CMHaptics error];
-        return;
-    }
-
-    // Prevent self-deletion
-    NSString *currentUserId = [CMTenantContext shared].currentUserId;
-    if ([currentUserId isEqualToString:user.userId]) {
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Cannot Delete"
-                                                                      message:@"You cannot delete your own account."
-                                                               preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [self presentViewController:alert animated:YES completion:nil];
+    // Pre-check: already deleted users are not actionable.
+    if ([user.status isEqualToString:CMUserStatusDeleted]) {
         return;
     }
 
@@ -326,7 +314,7 @@ static NSString * const kActionCellId = @"ActionCell";
                                                              preferredStyle:UIAlertControllerStyleAlert];
     [confirm addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [confirm addAction:[UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-        // Biometric re-auth required for destructive action (per prompt requirement)
+        // Biometric re-auth required for destructive action (per prompt requirement).
         [[CMAuthService shared] reauthForDestructiveActionWithReason:@"Confirm account deletion"
                                                            completion:^(BOOL success, NSError *bioErr) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -347,32 +335,27 @@ static NSString * const kActionCellId = @"ActionCell";
                     return;
                 }
 
-                // Soft-delete: set status to deleted and deletedAt
-                NSString *oldStatus = user.status;
-                user.status = CMUserStatusDeleted;
-                user.deletedAt = [NSDate date];
-                user.forceLogoutAt = [NSDate date]; // force logout on deletion
-                user.updatedAt = [NSDate date];
+                // Delegate to CMAccountService (enforces admin role, self-deletion
+                // prevention, soft-delete, audit trail).
+                CMAccountService *accountService = [[CMAccountService alloc]
+                    initWithContext:user.managedObjectContext];
+                NSError *deleteErr = nil;
+                BOOL deleted = [accountService deleteAccount:user error:&deleteErr];
 
-                NSError *saveErr = nil;
-                [user.managedObjectContext save:&saveErr];
-                if (!saveErr) {
+                if (deleted) {
                     [CMHaptics success];
-
-                    // Audit the account deletion
-                    [[CMAuditService shared] recordAction:@"user.account_deleted"
-                                               targetType:@"UserAccount"
-                                                 targetId:user.userId
-                                               beforeJSON:@{@"status": oldStatus, @"userId": user.userId}
-                                                afterJSON:@{@"status": CMUserStatusDeleted,
-                                                            @"deletedAt": [user.deletedAt description]}
-                                                   reason:@"Admin account deletion with biometric re-auth"
-                                               completion:nil];
                 } else {
-                    // Revert on failure
-                    user.status = oldStatus;
-                    user.deletedAt = nil;
                     [CMHaptics error];
+                    if (deleteErr) {
+                        UIAlertController *errAlert = [UIAlertController
+                            alertControllerWithTitle:@"Deletion Failed"
+                                             message:deleteErr.localizedDescription
+                                      preferredStyle:UIAlertControllerStyleAlert];
+                        [errAlert addAction:[UIAlertAction actionWithTitle:@"OK"
+                                                                    style:UIAlertActionStyleDefault
+                                                                  handler:nil]];
+                        [self presentViewController:errAlert animated:YES completion:nil];
+                    }
                 }
                 [self loadUsers:self.searchBar.text ?: @""];
             });
