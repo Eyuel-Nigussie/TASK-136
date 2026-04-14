@@ -292,12 +292,14 @@ static NSString * const kActionCellId = @"ActionCell";
         if (!err) {
             [CMHaptics success];
 
-            // Audit the forced logout action
-            [[CMPermissionChangeAuditor shared] recordRoleChange:user.userId
-                                                         oldRole:user.role
-                                                         newRole:user.role
-                                                          reason:@"Admin forced logout"
-                                                      completion:nil];
+            // Audit the forced logout action with proper event type
+            [[CMAuditService shared] recordAction:@"user.force_logout"
+                                       targetType:@"UserAccount"
+                                         targetId:user.userId
+                                       beforeJSON:@{@"forceLogoutAt": @"nil"}
+                                        afterJSON:@{@"forceLogoutAt": [user.forceLogoutAt description]}
+                                           reason:@"Admin forced logout via dashboard"
+                                       completion:nil];
         } else {
             [CMHaptics error];
         }

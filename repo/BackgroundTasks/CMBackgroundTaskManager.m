@@ -221,7 +221,8 @@ static NSTimeInterval const kAuditVerifyInterval        = 12 * 3600; // 12 hours
     [[CMCoreDataStack shared] performBackgroundTask:^(NSManagedObjectContext *ctx) {
         NSError *fetchError = nil;
         CMItineraryRepository *repo = [[CMItineraryRepository alloc] initWithContext:ctx];
-        NSArray<CMItinerary *> *itineraries = [repo activeItineraries:&fetchError];
+        // Use background-safe method that doesn't require authenticated CMTenantContext.
+        NSArray<CMItinerary *> *itineraries = [repo allActiveItinerariesForBackground:&fetchError];
 
         if (fetchError || !itineraries) {
             CMLogError(kLogTag, @"Match refresh: failed to fetch active itineraries: %@", fetchError);
@@ -419,7 +420,8 @@ static NSTimeInterval const kAuditVerifyInterval        = 12 * 3600; // 12 hours
     [[CMCoreDataStack shared] performBackgroundTask:^(NSManagedObjectContext *ctx) {
         CMTenantRepository *tenantRepo = [[CMTenantRepository alloc] initWithContext:ctx];
         NSError *fetchErr = nil;
-        NSArray<CMTenant *> *tenants = [tenantRepo allActive:&fetchErr];
+        // Use background-safe method that doesn't require authenticated CMTenantContext.
+        NSArray<CMTenant *> *tenants = [tenantRepo allActiveForBackground:&fetchErr];
 
         if (!tenants || tenants.count == 0) {
             CMLogInfo(kLogTag, @"Audit verify: no active tenants found, skipping");

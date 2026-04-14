@@ -110,6 +110,13 @@
                                    reason:reason
                                completion:nil];
 
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        if (error) { *error = saveErr; }
+        return nil;
+    }
+
     return appeal;
 }
 
@@ -196,6 +203,13 @@
     CMLogInfo(@"appeals.service", @"Assigned reviewer %@ to appeal %@",
               [CMDebugLogger redact:reviewerId], [CMDebugLogger redact:appeal.appealId]);
 
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        if (error) { *error = saveErr; }
+        return NO;
+    }
+
     return YES;
 }
 
@@ -249,13 +263,12 @@
         return NO;
     }
 
-    // 4a. Role check: only reviewers, finance, and admins may submit decisions.
-    if (![tc.currentRole isEqualToString:CMUserRoleReviewer] &&
-        ![tc.currentRole isEqualToString:CMUserRoleFinance] &&
-        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+    // 4a. Permission check via centralized RBAC matrix.
+    if (![tc.currentRole isEqualToString:CMUserRoleAdmin] &&
+        ![[CMPermissionMatrix shared] hasPermission:@"appeals.decide" forRole:tc.currentRole]) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodePermissionDenied
-                                    message:@"Only reviewers, finance, and admins may submit appeal decisions"];
+                                    message:@"Current role does not have appeals.decide permission"];
         }
         return NO;
     }
@@ -317,6 +330,13 @@
     CMLogInfo(@"appeals.service", @"Decision submitted for appeal %@: %@",
               [CMDebugLogger redact:appeal.appealId], decision);
 
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        if (error) { *error = saveErr; }
+        return NO;
+    }
+
     return YES;
 }
 
@@ -347,12 +367,11 @@
         return NO;
     }
 
-    if (![tc.currentRole isEqualToString:CMUserRoleReviewer] &&
-        ![tc.currentRole isEqualToString:CMUserRoleFinance] &&
-        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+    if (![tc.currentRole isEqualToString:CMUserRoleAdmin] &&
+        ![[CMPermissionMatrix shared] hasPermission:@"appeals.close" forRole:tc.currentRole]) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodePermissionDenied
-                                    message:@"Only reviewers, finance, and admins may close appeals"];
+                                    message:@"Current role does not have appeals.close permission"];
         }
         return NO;
     }
@@ -425,6 +444,13 @@
     CMLogInfo(@"appeals.service", @"Closed appeal %@ (dispute: %@)",
               [CMDebugLogger redact:appeal.appealId],
               appeal.disputeId ? [CMDebugLogger redact:appeal.disputeId] : @"none");
+
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        if (error) { *error = saveErr; }
+        return NO;
+    }
 
     return YES;
 }

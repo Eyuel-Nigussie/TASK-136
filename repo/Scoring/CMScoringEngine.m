@@ -172,6 +172,14 @@ static NSString * const kResultNotesKey     = @"notes";
                                    reason:@"Scorecard created from active rubric"
                                completion:nil];
 
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        CMLogError(@"scoring.engine", @"Failed to save scorecard creation: %@", saveErr);
+        if (error) { *error = saveErr; }
+        return nil;
+    }
+
     return scorecard;
 }
 
@@ -397,6 +405,14 @@ static NSString * const kResultNotesKey     = @"notes";
     CMLogInfo(@"scoring.engine", @"Recorded manual grade for scorecard %@, item %@: %.2f/%.2f",
               [CMDebugLogger redact:scorecard.scorecardId], itemKey, points, maxPoints);
 
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        CMLogError(@"scoring.engine", @"Failed to save manual grade: %@", saveErr);
+        if (error) { *error = saveErr; }
+        return NO;
+    }
+
     return YES;
 }
 
@@ -518,6 +534,14 @@ static NSString * const kResultNotesKey     = @"notes";
 
     CMLogInfo(@"scoring.engine", @"Finalized scorecard %@: %.2f / %.2f",
               [CMDebugLogger redact:scorecard.scorecardId], totalPoints, maxPoints);
+
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        CMLogError(@"scoring.engine", @"Failed to save scorecard finalization: %@", saveErr);
+        if (error) { *error = saveErr; }
+        return NO;
+    }
 
     return YES;
 }

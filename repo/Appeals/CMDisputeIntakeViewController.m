@@ -254,13 +254,7 @@ static NSArray<NSString *> *CMDisputeReasonCategories(void) {
         return;
     }
 
-    NSError *saveErr = nil;
-    [[CMCoreDataStack shared].viewContext save:&saveErr];
-    if (saveErr) {
-        [CMHaptics error];
-        [self showValidationError:saveErr.localizedDescription];
-        return;
-    }
+    // Service already persisted the dispute to store.
 
     // Re-link camera-captured attachment from "pending" to real disputeId.
     if (self.cameraAttachment) {

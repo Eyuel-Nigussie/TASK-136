@@ -171,10 +171,13 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
     if (![[CMPermissionMatrix shared] hasPermission:@"orders.update_status_own" forRole:role]) {
         [self showPermissionDenied]; return;
     }
+    // Courier must be the assigned courier — no empty/nil bypass.
     NSString *currentUserId = [CMTenantContext shared].currentUserId;
-    if (self.order.assignedCourierId.length > 0 &&
-        ![self.order.assignedCourierId isEqualToString:currentUserId]) {
-        [self showPermissionDenied]; return;
+    if ([role isEqualToString:CMUserRoleCourier]) {
+        if (!self.order.assignedCourierId ||
+            ![self.order.assignedCourierId isEqualToString:currentUserId]) {
+            [self showPermissionDenied]; return;
+        }
     }
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Update Status"
                                                                   message:nil

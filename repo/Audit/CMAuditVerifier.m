@@ -123,14 +123,14 @@ static NSUInteger const kVerifyBatchSize = 200;
 
         if (chainValid) {
             CMLogInfo(@"audit.verifier", @"chain valid for tenant %@, %lu entries verified",
-                      tenantId, (unsigned long)verified);
+                      [CMDebugLogger redact:tenantId], (unsigned long)verified);
             completion(YES, nil, nil);
         } else {
             NSError *chainErr = [CMError errorWithCode:CMErrorCodeAuditChainBroken
                                                message:[NSString stringWithFormat:
                                                         @"Chain broken at entry %@", brokenEntryId]];
             CMLogError(@"audit.verifier", @"chain BROKEN for tenant %@ at entry %@",
-                       tenantId, brokenEntryId);
+                       [CMDebugLogger redact:tenantId], [CMDebugLogger redact:brokenEntryId]);
             completion(NO, brokenEntryId, chainErr);
         }
     }];

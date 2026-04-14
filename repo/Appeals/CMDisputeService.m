@@ -125,6 +125,13 @@
               [CMDebugLogger redact:resolvedOrderId],
               [CMDebugLogger redact:tc.currentUserId]);
 
+    // Persist to store.
+    NSError *saveErr = nil;
+    if (![self.context save:&saveErr]) {
+        if (error) { *error = saveErr; }
+        return nil;
+    }
+
     return dispute;
 }
 

@@ -33,6 +33,7 @@
         <string>disputes.view</string>
         <string>appeals.grade_manual</string>
         <string>appeals.decide</string>
+        <string>appeals.close</string>
         <string>scorecards.view</string>
     </array>
     <key>cs</key>
@@ -46,6 +47,8 @@
     <key>finance</key>
     <array>
         <string>appeals.close_monetary</string>
+        <string>appeals.decide</string>
+        <string>appeals.close</string>
         <string>appeals.view</string>
         <string>exports.finance</string>
     </array>

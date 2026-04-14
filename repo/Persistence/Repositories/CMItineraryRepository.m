@@ -20,4 +20,13 @@
     NSPredicate *p = [NSPredicate predicateWithFormat:@"courierId == %@ AND status == %@", courierId, CMItineraryStatusActive];
     return [self fetchWithPredicate:p sortDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"departureWindowStart" ascending:YES]] limit:0 error:error];
 }
+
+- (NSArray<CMItinerary *> *)allActiveItinerariesForBackground:(NSError **)error {
+    // Direct fetch without CMTenantContext auth gate — for BGTask use only.
+    NSFetchRequest *req = [NSFetchRequest fetchRequestWithEntityName:@"Itinerary"];
+    req.predicate = [NSPredicate predicateWithFormat:
+                     @"status == %@ AND deletedAt == nil", CMItineraryStatusActive];
+    req.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"departureWindowStart" ascending:YES]];
+    return [self.context executeFetchRequest:req error:error];
+}
 @end

@@ -14,4 +14,12 @@
     NSPredicate *p = [NSPredicate predicateWithFormat:@"status == %@", CMTenantStatusActive];
     return [self fetchWithPredicate:p sortDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES]] limit:0 error:error];
 }
+
+- (NSArray<CMTenant *> *)allActiveForBackground:(NSError **)error {
+    // Direct fetch without CMTenantContext auth gate — for BGTask use only.
+    NSFetchRequest *req = [NSFetchRequest fetchRequestWithEntityName:@"Tenant"];
+    req.predicate = [NSPredicate predicateWithFormat:@"status == %@ AND deletedAt == nil", CMTenantStatusActive];
+    req.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES]];
+    return [self.context executeFetchRequest:req error:error];
+}
 @end
