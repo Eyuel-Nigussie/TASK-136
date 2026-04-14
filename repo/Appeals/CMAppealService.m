@@ -293,7 +293,7 @@
         }
     }
 
-    // 6. For "adjust" decision, afterScores is required.
+    // 6. For "adjust" decision, caller-supplied afterScores is required.
     if ([decision isEqualToString:CMAppealDecisionAdjust] && !afterScores) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodeValidationFailed
@@ -311,8 +311,13 @@
     appeal.decisionNotes  = notes;
     appeal.updatedAt      = [NSDate date];
 
+    // Always persist an after-score snapshot for compliance traceability.
+    // For "adjust": use caller-supplied scores. For uphold/reject: copy the
+    // before-score snapshot (scores unchanged).
     if (afterScores) {
         appeal.afterScoreSnapshotJSON = afterScores;
+    } else {
+        appeal.afterScoreSnapshotJSON = appeal.beforeScoreSnapshotJSON;
     }
 
     NSDictionary *afterJSON = [self snapshotForAppeal:appeal];

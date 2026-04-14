@@ -12,6 +12,7 @@
 #import "CMNotificationCenterService.h"
 #import "CMDisputeIntakeViewController.h"
 #import "CMCameraCaptureViewController.h"
+#import "CMSignatureCaptureViewController.h"
 #import "CMAttachment.h"
 #import "CMHaptics.h"
 #import "CMSessionManager.h"
@@ -31,7 +32,7 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
     CMOrderDetailSectionCount
 };
 
-@interface CMOrderDetailViewController () <UITableViewDataSource, UITableViewDelegate, CMCameraCaptureDelegate>
+@interface CMOrderDetailViewController () <UITableViewDataSource, UITableViewDelegate, CMCameraCaptureDelegate, CMSignatureCaptureDelegate>
 @property (nonatomic, strong) CMOrder *order;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, assign) BOOL customerNotesRevealed;
@@ -249,6 +250,14 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
     [self presentViewController:cameraVC animated:YES completion:nil];
 }
 
+- (void)captureSignatureTapped {
+    CMSignatureCaptureViewController *sigVC = [[CMSignatureCaptureViewController alloc]
+        initWithOrderId:self.order.orderId];
+    sigVC.delegate = self;
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:sigVC];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
 #pragma mark - CMCameraCaptureDelegate
 
 - (void)cameraCaptureDidCaptureAttachment:(CMAttachment *)attachment {
@@ -256,6 +265,16 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
 }
 
 - (void)cameraCaptureDidCancel {
+    // No action needed
+}
+
+#pragma mark - CMSignatureCaptureDelegate
+
+- (void)signatureCaptureDidComplete:(CMAttachment *)attachment {
+    [CMHaptics success];
+}
+
+- (void)signatureCaptureDidCancel {
     // No action needed
 }
 
@@ -352,6 +371,7 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
             if ([pm hasPermission:@"disputes.open" forRole:role]) count++; // Open Dispute
             if ([pm hasPermission:@"attachments.upload_own" forRole:role] ||
                 [pm hasPermission:@"attachments.upload_dispute" forRole:role]) count++; // Capture Photo
+            if ([pm hasPermission:@"attachments.upload_own" forRole:role]) count++; // Capture Signature
             return MAX(count, 1); // at least show something
         }
         default: return 0;
@@ -454,6 +474,7 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
             if ([pm hasPermission:@"disputes.open" forRole:role]) [actions addObject:@"open_dispute"];
             if ([pm hasPermission:@"attachments.upload_own" forRole:role] ||
                 [pm hasPermission:@"attachments.upload_dispute" forRole:role]) [actions addObject:@"capture_photo"];
+            if ([pm hasPermission:@"attachments.upload_own" forRole:role]) [actions addObject:@"capture_signature"];
 
             if (indexPath.row < (NSInteger)actions.count) {
                 NSString *action = actions[indexPath.row];
@@ -472,6 +493,9 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
                 } else if ([action isEqualToString:@"capture_photo"]) {
                     cell.textLabel.text = @"Capture Photo";
                     cell.accessibilityLabel = @"Capture delivery proof photo";
+                } else if ([action isEqualToString:@"capture_signature"]) {
+                    cell.textLabel.text = @"Capture Signature";
+                    cell.accessibilityLabel = @"Capture delivery confirmation signature";
                 }
             } else {
                 cell.textLabel.text = @"No actions available";
@@ -548,6 +572,8 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
                 [self assignTapped];
             } else if ([action isEqualToString:@"capture_photo"]) {
                 [self capturePhotoTapped];
+            } else if ([action isEqualToString:@"capture_signature"]) {
+                [self captureSignatureTapped];
             } else if ([action isEqualToString:@"edit_notes"]) {
                 [self editNotesTapped];
             } else if ([action isEqualToString:@"update_status"]) {

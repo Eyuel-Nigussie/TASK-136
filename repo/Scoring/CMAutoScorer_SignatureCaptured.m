@@ -21,10 +21,10 @@ static NSString * const kSignatureOwnerType = @"signature";
     NSString *matchedId = nil;
 
     for (CMAttachment *att in attachments) {
-        // A signature attachment is identified by ownerType == "signature"
-        // or by having "signature" in the filename (case-insensitive).
-        if ([att.ownerType.lowercaseString isEqualToString:kSignatureOwnerType] ||
-            [att.filename.lowercaseString containsString:@"signature"]) {
+        // A signature attachment is identified strictly by ownerType == "signature".
+        // Filename-based heuristic removed to prevent non-signature files from
+        // satisfying this objective scoring criterion.
+        if ([att.ownerType.lowercaseString isEqualToString:kSignatureOwnerType]) {
             hasSignature = YES;
             matchedId = att.attachmentId;
             break;

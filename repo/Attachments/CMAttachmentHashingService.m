@@ -105,8 +105,8 @@ static NSString *const kTagHashing = @"attachment.hashing";
         BOOL matches = [recomputedHash isEqualToString:storedHash];
 
         if (!matches) {
-            CMLogError(kTagHashing, @"TAMPER DETECTED for attachment %@: expected=%@ got=%@",
-                       attachmentId, storedHash, recomputedHash);
+            CMLogError(kTagHashing, @"TAMPER DETECTED for attachment %@: hash mismatch",
+                       [CMDebugLogger redact:attachmentId]);
 
             // Update Core Data on a background context.
             [[CMCoreDataStack shared] performBackgroundTask:^(NSManagedObjectContext *ctx) {
