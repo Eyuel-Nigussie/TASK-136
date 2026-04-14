@@ -67,21 +67,25 @@
         return nil;
     }
 
-    // 3b. Object-level ownership: couriers may only dispute their own orders.
-    //     Always resolve the order entity so this check cannot be bypassed by omitting `order`.
+    // 3b. Always resolve the order entity to validate it exists in the current tenant.
+    //     This prevents disputes against non-existent or cross-tenant order references.
+    CMOrder *resolvedOrder = order;
+    if (!resolvedOrder) {
+        CMOrderRepository *orderRepo = [[CMOrderRepository alloc] initWithContext:self.context];
+        resolvedOrder = [orderRepo findByOrderId:resolvedOrderId error:nil];
+    }
+    if (!resolvedOrder) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodeValidationFailed
+                                    message:@"Order not found in current tenant; cannot open dispute"];
+        }
+        return nil;
+    }
+    // Use the resolved order's ID to ensure consistency.
+    resolvedOrderId = resolvedOrder.orderId;
+
+    // 3c. Object-level ownership: couriers may only dispute their own orders.
     if ([tc.currentRole isEqualToString:CMUserRoleCourier]) {
-        CMOrder *resolvedOrder = order;
-        if (!resolvedOrder) {
-            CMOrderRepository *orderRepo = [[CMOrderRepository alloc] initWithContext:self.context];
-            resolvedOrder = [orderRepo findByOrderId:resolvedOrderId error:nil];
-        }
-        if (!resolvedOrder) {
-            if (error) {
-                *error = [CMError errorWithCode:CMErrorCodeValidationFailed
-                                        message:@"Order not found; couriers must reference a valid assigned order"];
-            }
-            return nil;
-        }
         if (![resolvedOrder.assignedCourierId isEqualToString:tc.currentUserId]) {
             if (error) {
                 *error = [CMError errorWithCode:CMErrorCodePermissionDenied

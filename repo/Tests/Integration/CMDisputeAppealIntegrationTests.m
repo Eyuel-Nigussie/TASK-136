@@ -655,4 +655,49 @@
     XCTAssertNotNil(appeal, @"Courier should be able to appeal own scorecard: %@", appealErr);
 }
 
+#pragma mark - Test: Dispute with non-existent orderId rejected for CS
+
+- (void)testCSCannotOpenDisputeWithNonExistentOrderId {
+    [self switchToUser:self.csUser];
+
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    // Pass nil order and a fabricated orderId that doesn't exist in the tenant.
+    CMDispute *dispute = [svc openDisputeForOrder:nil orderId:@"FAKE-ORDER-999"
+                                           reason:@"Testing" category:@"other" error:&err];
+    XCTAssertNil(dispute, @"CS should not be able to open dispute with non-existent orderId");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodeValidationFailed);
+}
+
+- (void)testAdminCannotOpenDisputeWithNonExistentOrderId {
+    [self switchToUser:self.adminUser];
+
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:nil orderId:@"FAKE-ORDER-888"
+                                           reason:@"Testing" category:@"other" error:&err];
+    XCTAssertNil(dispute, @"Admin should not be able to open dispute with non-existent orderId");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodeValidationFailed);
+}
+
+- (void)testCourierCannotOpenDisputeWithOrderIdOnly {
+    // Create order assigned to a different user
+    CMOrder *order = [self insertTestOrder:@"ord-ref-bypass"];
+    order.status = CMOrderStatusDelivered;
+    order.assignedCourierId = self.dispatcherUser.userId;
+    [self saveContext];
+
+    [self switchToUser:self.courierUser];
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    // Pass nil order but valid orderId — ownership should still be enforced.
+    CMDispute *dispute = [svc openDisputeForOrder:nil orderId:@"ord-ref-bypass"
+                                           reason:@"Bypass attempt" category:@"other" error:&err];
+    XCTAssertNil(dispute, @"Courier should not bypass ownership with orderId-only path");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
+}
+
 @end

@@ -341,4 +341,37 @@
     [self saveContext];
 }
 
+#pragma mark - Test: Audit Entry Immutability — Mutation Blocked
+
+- (void)testPersistedAuditEntryMutationIsBlocked {
+    // Write an entry through the production path.
+    XCTestExpectation *writeExp = [self expectationWithDescription:@"Write entry"];
+    __block CMAuditEntry *writtenEntry = nil;
+
+    [[CMAuditService shared] recordAction:@"immutability.test.write"
+                               targetType:@"ImmutabilityTest" targetId:@"imm-1"
+                               beforeJSON:nil afterJSON:@{@"original": @YES}
+                                   reason:@"Testing immutability enforcement"
+                               completion:^(CMAuditEntry *entry, NSError *error) {
+        writtenEntry = entry;
+        [writeExp fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+    XCTAssertNotNil(writtenEntry);
+
+    // Attempt to mutate the persisted entry — willSave should revert it.
+    NSString *originalAction = writtenEntry.action;
+    writtenEntry.action = @"TAMPERED";
+
+    // The save should succeed (willSave reverts the object), but the mutation
+    // should not persist.
+    NSError *saveErr = nil;
+    [self.testContext save:&saveErr];
+
+    // Re-fetch and verify the original value is intact.
+    [self.testContext refreshObject:writtenEntry mergeChanges:NO];
+    XCTAssertEqualObjects(writtenEntry.action, originalAction,
+                          @"Persisted audit entry mutation should be blocked by willSave");
+}
+
 @end

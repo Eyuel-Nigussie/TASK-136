@@ -10,9 +10,10 @@
 @implementation CMBiometricAuth
 
 + (LAPolicy)laPolicyFor:(CMBiometricPolicy)policy {
-    return (policy == CMBiometricPolicyDestructive)
-        ? LAPolicyDeviceOwnerAuthentication
-        : LAPolicyDeviceOwnerAuthenticationWithBiometrics;
+    // Both policies require biometrics — no passcode fallback.
+    // The prompt explicitly requires "biometric re-auth" for destructive actions;
+    // LAPolicyDeviceOwnerAuthentication would permit passcode, which violates that.
+    return LAPolicyDeviceOwnerAuthenticationWithBiometrics;
 }
 
 + (BOOL)isAvailable {

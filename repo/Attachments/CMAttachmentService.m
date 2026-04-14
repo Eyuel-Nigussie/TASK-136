@@ -11,6 +11,7 @@
 #import "CMFileLocations.h"
 #import "CMFileProtection.h"
 #import "CMTenantContext.h"
+#import "CMSessionManager.h"
 #import "CMCoreDataStack.h"
 #import "CMAuditService.h"
 #import "CMError.h"
@@ -76,6 +77,14 @@ static NSTimeInterval const kExpiryInterval = 30.0 * 24.0 * 60.0 * 60.0;
                          ownerType:(NSString *)ownerType
                            ownerId:(NSString *)ownerId
                         completion:(CMAttachmentSaveCompletion)completion {
+
+    // 0. Session preflight: ensure session is active and not expired/revoked.
+    NSError *preflightErr = nil;
+    if (![[CMSessionManager shared] preflightSensitiveActionWithError:&preflightErr]) {
+        CMLogWarn(@"attachment.service", @"Attachment upload blocked by session preflight: %@", preflightErr);
+        if (completion) { completion(nil, preflightErr); }
+        return;
+    }
 
     // 1. Validate MIME + magic + size.
     NSError *valError = nil;
