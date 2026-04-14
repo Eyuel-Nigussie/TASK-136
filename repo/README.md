@@ -11,13 +11,26 @@ itinerary-based order matching, and compliant delivery performance scoring.
 
 | Tool | Install | Required for |
 |---|---|---|
-| Docker | `brew install --cask docker` or any Docker install | `build`, `test` |
-| macOS + Xcode | Mac App Store | `run-mac`, `test-mac` |
-| XcodeGen | `brew install xcodegen` | `run-mac`, `test-mac` |
+| macOS 14+ + Xcode 16+ | Mac App Store | Native build, test, run (primary) |
+| XcodeGen | `brew install xcodegen` | Generate .xcodeproj from project.yml |
+| Docker (optional) | `brew install --cask docker` | Platform-independent validation |
 
 ---
 
-## Docker Commands
+## Native Build (Primary — macOS)
+
+```bash
+make setup       # Generate .xcodeproj via XcodeGen
+make build       # Build for iOS Simulator
+make test        # Run all XCTest tests
+make run         # Launch on simulator
+```
+
+Or open in Xcode: `make setup && open CourierMatch.xcodeproj` then Cmd+R.
+
+---
+
+## Docker Commands (Optional Validation)
 
 ### All Commands
 
@@ -71,24 +84,6 @@ docker run -v "$(pwd):/app" couriermatch run-mac   # Build + launch on simulator
 ```bash
 ./scripts/docker-setup.sh                           # One-time setup
 docker run -v "$(pwd):/app" couriermatch test-mac   # Run full XCTest suite
-```
-
----
-
-## Without Docker (macOS)
-
-```bash
-make setup       # Generate .xcodeproj
-make build       # Build for iOS Simulator
-make test        # Run all tests
-make run         # Launch on simulator
-```
-
-Or open in Xcode:
-
-```bash
-make setup
-open CourierMatch.xcodeproj    # Then Cmd+R
 ```
 
 ---

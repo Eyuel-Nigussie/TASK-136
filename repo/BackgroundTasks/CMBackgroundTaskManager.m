@@ -12,6 +12,8 @@
 #import "CMItineraryRepository.h"
 #import "CMItinerary.h"
 #import "CMTenantContext.h"
+#import "CMTenantRepository.h"
+#import "CMTenant.h"
 #import "CMAuditVerifier.h"
 #import "CMNotificationPurgeJob.h"
 #import "CMAttachmentCleanupJob.h"
@@ -413,32 +415,52 @@ static NSTimeInterval const kAuditVerifyInterval        = 12 * 3600; // 12 hours
         expired = YES;
     };
 
-    // Get the current tenant. If no tenant is authenticated, there is nothing
-    // to verify. The audit verifier is tenant-scoped.
-    NSString *tenantId = [CMTenantContext shared].currentTenantId;
-    if (!tenantId.length) {
-        CMLogInfo(kLogTag, @"Audit verify: no current tenant, skipping");
-        [task setTaskCompletedWithSuccess:YES];
-        return;
-    }
+    // Iterate over all persisted tenants instead of depending on volatile session context.
+    [[CMCoreDataStack shared] performBackgroundTask:^(NSManagedObjectContext *ctx) {
+        CMTenantRepository *tenantRepo = [[CMTenantRepository alloc] initWithContext:ctx];
+        NSError *fetchErr = nil;
+        NSArray<CMTenant *> *tenants = [tenantRepo allActive:&fetchErr];
 
-    [[CMAuditVerifier shared] verifyChainForTenant:tenantId
-                                          progress:^(NSUInteger verified, NSUInteger total) {
-        // Check cooperative expiration during progress callbacks.
-        if (expired) {
-            CMLogInfo(kLogTag, @"Audit verify: expired at %lu/%lu entries",
-                      (unsigned long)verified, (unsigned long)total);
-            // The verifier persists its cursor, so partial progress is saved.
-        }
-    }
-                                        completion:^(BOOL success, NSString *brokenEntryId, NSError *error) {
-        if (error && !success) {
-            CMLogError(kLogTag, @"Audit verify: chain verification failed: %@", error);
-            [task setTaskCompletedWithSuccess:NO];
-        } else {
-            CMLogInfo(kLogTag, @"Audit verify: completed successfully");
+        if (!tenants || tenants.count == 0) {
+            CMLogInfo(kLogTag, @"Audit verify: no active tenants found, skipping");
             [task setTaskCompletedWithSuccess:YES];
+            return;
         }
+
+        CMLogInfo(kLogTag, @"Audit verify: processing %lu tenants", (unsigned long)tenants.count);
+
+        dispatch_group_t group = dispatch_group_create();
+        __block BOOL anyFailure = NO;
+
+        for (CMTenant *tenant in tenants) {
+            if (expired) {
+                CMLogInfo(kLogTag, @"Audit verify: expired, stopping tenant iteration");
+                break;
+            }
+
+            dispatch_group_enter(group);
+            [[CMAuditVerifier shared] verifyChainForTenant:tenant.tenantId
+                                                  progress:^(NSUInteger verified, NSUInteger total) {
+                if (expired) {
+                    CMLogInfo(kLogTag, @"Audit verify: expired at %lu/%lu entries for tenant %@",
+                              (unsigned long)verified, (unsigned long)total,
+                              [CMDebugLogger redact:tenant.tenantId]);
+                }
+            }
+                                                completion:^(BOOL success, NSString *brokenEntryId, NSError *error) {
+                if (error && !success) {
+                    CMLogError(kLogTag, @"Audit verify: chain failed for tenant %@: %@",
+                               [CMDebugLogger redact:tenant.tenantId], error);
+                    anyFailure = YES;
+                }
+                dispatch_group_leave(group);
+            }];
+        }
+
+        dispatch_group_notify(group, dispatch_get_main_queue(), ^{
+            [task setTaskCompletedWithSuccess:!anyFailure];
+            CMLogInfo(kLogTag, @"Audit verify: all tenants processed (anyFailure=%d)", anyFailure);
+        });
     }];
 }
 

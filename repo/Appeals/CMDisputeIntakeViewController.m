@@ -38,6 +38,7 @@ static NSArray<NSString *> *CMDisputeReasonCategories(void) {
 @property (nonatomic, strong, nullable) NSData *attachedFileData;
 @property (nonatomic, copy, nullable) NSString *attachedFilename;
 @property (nonatomic, copy, nullable) NSString *attachedMimeType;
+@property (nonatomic, strong, nullable) CMAttachment *cameraAttachment;
 @property (nonatomic, assign) NSInteger selectedCategoryIndex;
 @end
 
@@ -216,6 +217,7 @@ static NSArray<NSString *> *CMDisputeReasonCategories(void) {
 #pragma mark - CMCameraCaptureDelegate
 
 - (void)cameraCaptureDidCaptureAttachment:(CMAttachment *)attachment {
+    self.cameraAttachment = attachment;
     self.attachmentStatusLabel.text = [NSString stringWithFormat:@"Attached: %@", attachment.filename];
     [CMHaptics success];
 }
@@ -260,7 +262,13 @@ static NSArray<NSString *> *CMDisputeReasonCategories(void) {
         return;
     }
 
-    // If attachment present, save it with the detected MIME type
+    // Re-link camera-captured attachment from "pending" to real disputeId.
+    if (self.cameraAttachment) {
+        self.cameraAttachment.ownerId = dispute.disputeId;
+        self.cameraAttachment.updatedAt = [NSDate date];
+    }
+
+    // If file-picker attachment present, save it with the detected MIME type.
     if (self.attachedFileData && self.attachedFilename && self.attachedMimeType) {
         [[CMAttachmentService shared] saveAttachmentWithFilename:self.attachedFilename
                                                             data:self.attachedFileData

@@ -8,6 +8,7 @@
 #import "CMNotificationRepository.h"
 #import "CMNotificationTemplateRenderer.h"
 #import "CMNotificationRateLimiter.h"
+#import "CMWorkEntities.h"
 #import "CMTenantContext.h"
 #import "CMTenantRepository.h"
 #import "CMTenant.h"
@@ -158,6 +159,17 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
                           (unsigned long)ids.count);
             }
         }
+
+        // ---- Write WorkNotificationExpiry sidecar record ----
+        // This gives the purge job an authoritative expiry input.
+        // Default retention: 30 days from creation.
+        static NSTimeInterval const kDefaultRetentionSeconds = 30.0 * 24.0 * 60.0 * 60.0;
+        CMWorkNotificationExpiry *expiry = [NSEntityDescription
+            insertNewObjectForEntityForName:@"WorkNotificationExpiry"
+                     inManagedObjectContext:bgCtx];
+        expiry.notificationId = item.notificationId;
+        expiry.tenantId = tenantId;
+        expiry.expiresAt = [now dateByAddingTimeInterval:kDefaultRetentionSeconds];
 
         // ---- Save ----
         BOOL saved = [bgCtx cm_saveWithError:&error];

@@ -6,6 +6,7 @@
 #import "CMDisputeService.h"
 #import "CMDispute.h"
 #import "CMOrder.h"
+#import "CMOrderRepository.h"
 #import "CMDisputeRepository.h"
 #import "CMTenantContext.h"
 #import "CMPermissionMatrix.h"
@@ -67,8 +68,21 @@
     }
 
     // 3b. Object-level ownership: couriers may only dispute their own orders.
-    if ([tc.currentRole isEqualToString:CMUserRoleCourier] && order) {
-        if (![order.assignedCourierId isEqualToString:tc.currentUserId]) {
+    //     Always resolve the order entity so this check cannot be bypassed by omitting `order`.
+    if ([tc.currentRole isEqualToString:CMUserRoleCourier]) {
+        CMOrder *resolvedOrder = order;
+        if (!resolvedOrder) {
+            CMOrderRepository *orderRepo = [[CMOrderRepository alloc] initWithContext:self.context];
+            resolvedOrder = [orderRepo findByOrderId:resolvedOrderId error:nil];
+        }
+        if (!resolvedOrder) {
+            if (error) {
+                *error = [CMError errorWithCode:CMErrorCodeValidationFailed
+                                        message:@"Order not found; couriers must reference a valid assigned order"];
+            }
+            return nil;
+        }
+        if (![resolvedOrder.assignedCourierId isEqualToString:tc.currentUserId]) {
             if (error) {
                 *error = [CMError errorWithCode:CMErrorCodePermissionDenied
                                         message:@"Couriers may only open disputes for orders assigned to them"];

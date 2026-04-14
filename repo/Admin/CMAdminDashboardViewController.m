@@ -13,6 +13,11 @@
 #import "CMAuditService.h"
 #import "CMAuditVerifier.h"
 #import "CMAuthService.h"
+#import "CMRubricRepository.h"
+#import "CMRubricTemplate.h"
+#import "CMAttachmentAllowlist.h"
+#import "CMTenant.h"
+#import "CMTenantRepository.h"
 #import "CMDebugLogger.h"
 #import "CMSessionManager.h"
 #import "CMHaptics.h"
@@ -21,6 +26,7 @@
 typedef NS_ENUM(NSInteger, CMAdminSection) {
     CMAdminSectionUserManagement = 0,
     CMAdminSectionAccountDeletion,
+    CMAdminSectionConfiguration,
     CMAdminSectionDiagnostics,
     CMAdminSectionForcedLogout,
     CMAdminSectionCount
@@ -364,6 +370,150 @@ static NSString * const kActionCellId = @"ActionCell";
     [self presentViewController:confirm animated:YES completion:nil];
 }
 
+#pragma mark - Configuration Management
+
+- (void)showRubricManagement {
+    if (![[CMTenantContext shared].currentRole isEqualToString:CMUserRoleAdmin]) { return; }
+
+    CMRubricRepository *rubricRepo = [[CMRubricRepository alloc]
+        initWithContext:[CMCoreDataStack shared].viewContext];
+    NSError *err = nil;
+    CMRubricTemplate *active = [rubricRepo activeRubricForTenant:&err];
+
+    NSString *info = active
+        ? [NSString stringWithFormat:@"Active Rubric: %@\nVersion: %lld\nItems: %lu",
+           active.name, active.rubricVersion, (unsigned long)active.items.count]
+        : @"No active rubric template found.";
+
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Rubric Management"
+                                                                  message:info
+                                                           preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Create New Version"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *a) {
+        [self createNewRubricVersion:rubricRepo currentRubric:active];
+    }]];
+    if (active) {
+        [alert addAction:[UIAlertAction actionWithTitle:@"Deactivate Current"
+                                                  style:UIAlertActionStyleDestructive
+                                                handler:^(UIAlertAction *a) {
+            active.active = NO;
+            active.updatedAt = [NSDate date];
+            [[CMCoreDataStack shared].viewContext save:nil];
+            [[CMAuditService shared] recordAction:@"rubric.deactivated"
+                                       targetType:@"RubricTemplate" targetId:active.rubricId
+                                       beforeJSON:@{@"active": @YES} afterJSON:@{@"active": @NO}
+                                           reason:@"Admin deactivated rubric" completion:nil];
+            [CMHaptics success];
+        }]];
+    }
+    [alert addAction:[UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)createNewRubricVersion:(CMRubricRepository *)repo currentRubric:(CMRubricTemplate *)current {
+    UIAlertController *form = [UIAlertController alertControllerWithTitle:@"New Rubric Version"
+                                                                 message:@"Enter rubric name"
+                                                          preferredStyle:UIAlertControllerStyleAlert];
+    [form addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.placeholder = @"Rubric name";
+        tf.text = current.name ?: @"Standard Rubric";
+    }];
+    [form addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [form addAction:[UIAlertAction actionWithTitle:@"Create" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        NSString *name = form.textFields.firstObject.text;
+        if (name.length == 0) return;
+
+        // Deactivate current
+        if (current) { current.active = NO; current.updatedAt = [NSDate date]; }
+
+        CMRubricTemplate *newRubric = [repo insertRubric];
+        newRubric.name = name;
+        newRubric.active = YES;
+        newRubric.rubricVersion = current ? current.rubricVersion + 1 : 1;
+        newRubric.items = current.items ?: @[];
+
+        NSError *saveErr = nil;
+        [[CMCoreDataStack shared].viewContext save:&saveErr];
+        if (!saveErr) {
+            [[CMAuditService shared] recordAction:@"rubric.published"
+                                       targetType:@"RubricTemplate" targetId:newRubric.rubricId
+                                       beforeJSON:nil afterJSON:@{@"name": name, @"version": @(newRubric.rubricVersion)}
+                                           reason:@"Admin published new rubric version" completion:nil];
+            [CMHaptics success];
+        } else {
+            [CMHaptics error];
+        }
+    }]];
+    [self presentViewController:form animated:YES completion:nil];
+}
+
+- (void)showAllowlistSettings {
+    if (![[CMTenantContext shared].currentRole isEqualToString:CMUserRoleAdmin]) { return; }
+
+    CMAttachmentAllowlist *allowlist = [CMAttachmentAllowlist shared];
+    NSString *info = [NSString stringWithFormat:
+        @"Allowed types: JPG, PNG, PDF\nMax size: %lu bytes (%.1f MB)",
+        (unsigned long)allowlist.maxSizeBytes,
+        (double)allowlist.maxSizeBytes / (1024.0 * 1024.0)];
+
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Attachment Allowlist"
+                                                                  message:info
+                                                           preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.placeholder = @"Max size in MB (up to 10)";
+        tf.keyboardType = UIKeyboardTypeDecimalPad;
+        tf.text = [NSString stringWithFormat:@"%.0f",
+                   (double)allowlist.maxSizeBytes / (1024.0 * 1024.0)];
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Update" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        double mbValue = [alert.textFields.firstObject.text doubleValue];
+        if (mbValue <= 0 || mbValue > 10) {
+            [CMHaptics warning];
+            return;
+        }
+        NSUInteger oldSize = allowlist.maxSizeBytes;
+        allowlist.maxSizeBytes = (NSUInteger)(mbValue * 1024.0 * 1024.0);
+        [[CMAuditService shared] recordAction:@"allowlist.max_size_changed"
+                                   targetType:@"AttachmentAllowlist" targetId:@"shared"
+                                   beforeJSON:@{@"maxSizeBytes": @(oldSize)}
+                                    afterJSON:@{@"maxSizeBytes": @(allowlist.maxSizeBytes)}
+                                       reason:@"Admin updated allowlist max size" completion:nil];
+        [CMHaptics success];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)showTenantConfig {
+    if (![[CMTenantContext shared].currentRole isEqualToString:CMUserRoleAdmin]) { return; }
+
+    NSString *tenantId = [CMTenantContext shared].currentTenantId;
+    CMTenantRepository *tenantRepo = [[CMTenantRepository alloc]
+        initWithContext:[CMCoreDataStack shared].viewContext];
+    NSError *err = nil;
+    CMTenant *tenant = [tenantRepo findByTenantId:tenantId error:&err];
+
+    NSString *configStr = @"(no configuration)";
+    if (tenant.configJSON && [tenant.configJSON isKindOfClass:[NSDictionary class]]) {
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:tenant.configJSON
+                                                          options:NSJSONWritingPrettyPrinted error:nil];
+        if (jsonData) {
+            configStr = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        }
+    }
+
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Tenant Configuration"
+                                                                  message:[NSString stringWithFormat:
+                                                                           @"Tenant: %@\nStatus: %@\n\nConfig:\n%@",
+                                                                           tenant.name ?: tenantId,
+                                                                           tenant.status ?: @"unknown",
+                                                                           configStr]
+                                                           preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)showDiagnostics {
     // Service-layer admin role enforcement
     if (![[CMTenantContext shared].currentRole isEqualToString:CMUserRoleAdmin]) {
@@ -481,6 +631,7 @@ static NSString * const kActionCellId = @"ActionCell";
     switch ((CMAdminSection)section) {
         case CMAdminSectionUserManagement: return @"User Management";
         case CMAdminSectionAccountDeletion: return @"Account Deletion";
+        case CMAdminSectionConfiguration: return @"Configuration";
         case CMAdminSectionDiagnostics: return @"Diagnostics";
         case CMAdminSectionForcedLogout: return @"Force Logout";
         default: return nil;
@@ -493,6 +644,8 @@ static NSString * const kActionCellId = @"ActionCell";
             return (NSInteger)self.users.count;
         case CMAdminSectionAccountDeletion:
             return (NSInteger)self.users.count;
+        case CMAdminSectionConfiguration:
+            return 3; // Rubric Management, Allowlist Settings, Tenant Config
         case CMAdminSectionDiagnostics:
             return 2; // View logs, Verify chain
         case CMAdminSectionForcedLogout:
@@ -534,6 +687,26 @@ static NSString * const kActionCellId = @"ActionCell";
 
             cell.accessibilityLabel = [NSString stringWithFormat:@"Delete account %@", user.displayName ?: user.username];
             cell.accessibilityTraits = UIAccessibilityTraitButton;
+            return cell;
+        }
+        case CMAdminSectionConfiguration: {
+            UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kActionCellId forIndexPath:indexPath];
+            cell.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
+            cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+            cell.textLabel.adjustsFontForContentSizeCategory = YES;
+            cell.textLabel.textColor = [UIColor systemBlueColor];
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+
+            if (indexPath.row == 0) {
+                cell.textLabel.text = @"Rubric Management";
+                cell.accessibilityLabel = @"Manage scoring rubric templates";
+            } else if (indexPath.row == 1) {
+                cell.textLabel.text = @"Attachment Allowlist";
+                cell.accessibilityLabel = @"Configure attachment allowlist settings";
+            } else {
+                cell.textLabel.text = @"Tenant Configuration";
+                cell.accessibilityLabel = @"Manage tenant-level configuration";
+            }
             return cell;
         }
         case CMAdminSectionDiagnostics: {
@@ -602,6 +775,16 @@ static NSString * const kActionCellId = @"ActionCell";
             CMUserAccount *user = self.users[indexPath.row];
             if (![user.status isEqualToString:CMUserStatusDeleted]) {
                 [self deleteAccount:user];
+            }
+            break;
+        }
+        case CMAdminSectionConfiguration: {
+            if (indexPath.row == 0) {
+                [self showRubricManagement];
+            } else if (indexPath.row == 1) {
+                [self showAllowlistSettings];
+            } else {
+                [self showTenantConfig];
             }
             break;
         }

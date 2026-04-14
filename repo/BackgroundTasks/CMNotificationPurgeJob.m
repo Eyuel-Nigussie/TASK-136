@@ -7,11 +7,15 @@
 #import "CMCoreDataStack.h"
 #import "CMWorkEntities.h"
 #import "CMNotificationItem.h"
+#import "CMTenantRepository.h"
+#import "CMTenant.h"
 #import "CMDebugLogger.h"
 #import "NSManagedObjectContext+CMHelpers.h"
 
 static NSString * const kLogTag = @"NotifPurge";
 static NSUInteger const kBatchSize = 100;
+/// Notifications older than this are eligible for archival (30 days).
+static NSTimeInterval const kRetentionInterval = 30.0 * 24.0 * 60.0 * 60.0;
 
 @implementation CMNotificationPurgeJob
 
@@ -28,6 +32,8 @@ static NSUInteger const kBatchSize = 100;
 
     [[CMCoreDataStack shared] performBackgroundTask:^(NSManagedObjectContext *ctx) {
         NSDate *now = [NSDate date];
+        // Retention cutoff: only archive notifications older than 30 days.
+        NSDate *retentionCutoff = [now dateByAddingTimeInterval:-kRetentionInterval];
         NSUInteger totalPurged = 0;
         NSError *error = nil;
 
@@ -58,7 +64,7 @@ static NSUInteger const kBatchSize = 100;
             }
 
             NSUInteger archived = [self archiveExpiredMainNotificationsInContext:ctx
-                                                                         before:now
+                                                                         before:retentionCutoff
                                                                     expiredFlag:expiredFlag
                                                                           error:&error];
             if (error) {
@@ -147,12 +153,13 @@ static NSUInteger const kBatchSize = 100;
         }
 
         // Find notification items that are either:
-        //   - acked (ackedAt != nil), or
-        //   - expired (createdAt older than cutoff, with no readAt)
+        //   - acked (ackedAt != nil) AND older than retention cutoff, or
+        //   - read and older than retention cutoff
         // AND not yet soft-deleted.
+        // Tenant scoping: process all tenants; tenantId is on each row.
         NSFetchRequest *req = [NSFetchRequest fetchRequestWithEntityName:@"NotificationItem"];
         req.predicate = [NSPredicate predicateWithFormat:
-            @"deletedAt == nil AND (ackedAt != nil OR createdAt < %@)", cutoff];
+            @"deletedAt == nil AND createdAt < %@ AND (ackedAt != nil OR readAt != nil)", cutoff];
         req.fetchLimit = kBatchSize;
 
         NSError *fetchError = nil;
