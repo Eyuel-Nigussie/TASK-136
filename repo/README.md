@@ -136,6 +136,6 @@ repo/
 
 ## Documentation
 
-- `../docs/design.md` -- System design document (at workspace root)
-- `../docs/questions.md` -- 20 assumptions with concrete solutions
-- `../docs/apispec.md` -- API specification (no external APIs — fully offline)
+- `docs/design.md` -- System design document
+- `docs/questions.md` -- 20 assumptions with concrete solutions
+- `docs/apispec.md` -- API specification (no external APIs — fully offline)
