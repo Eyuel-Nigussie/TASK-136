@@ -15,6 +15,7 @@
 #import "CMAttachmentRepository.h"
 #import "CMTenantContext.h"
 #import "CMAuditService.h"
+#import "CMUserAccount.h"
 #import "CMError.h"
 #import "CMDebugLogger.h"
 
@@ -279,6 +280,17 @@ static NSString * const kResultNotesKey     = @"notes";
     NSParameterAssert(scorecard);
     NSParameterAssert(itemKey.length > 0);
 
+    // 0. Role check: only reviewers and admins may record manual grades.
+    CMTenantContext *tc = [CMTenantContext shared];
+    if (![tc.currentRole isEqualToString:CMUserRoleReviewer] &&
+        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                    message:@"Only reviewers and admins may record manual grades"];
+        }
+        return NO;
+    }
+
     // 1. Reject if finalized.
     if ([scorecard isFinalized]) {
         if (error) {
@@ -391,6 +403,17 @@ static NSString * const kResultNotesKey     = @"notes";
 - (BOOL)finalizeScorecard:(CMDeliveryScorecard *)scorecard
                     error:(NSError **)error {
     NSParameterAssert(scorecard);
+
+    // 0. Role check: only reviewers and admins may finalize scorecards.
+    CMTenantContext *tc0 = [CMTenantContext shared];
+    if (![tc0.currentRole isEqualToString:CMUserRoleReviewer] &&
+        ![tc0.currentRole isEqualToString:CMUserRoleAdmin]) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                    message:@"Only reviewers and admins may finalize scorecards"];
+        }
+        return NO;
+    }
 
     // 1. Reject if already finalized.
     if ([scorecard isFinalized]) {

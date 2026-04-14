@@ -343,11 +343,11 @@ willConnectToSession:(UISceneSession *)session
         [tabs addObject:nav];
     }
 
-    // Scoring/Appeals tab — available to reviewers, admin, and some roles
+    // Scoring/Appeals tab — available to reviewers, finance, and admin only.
+    // Per prompt: manual review belongs to Reviewers, financial adjustments to Finance.
     if ([role isEqualToString:CMUserRoleReviewer] ||
-        [role isEqualToString:CMUserRoleAdmin] ||
-        [role isEqualToString:CMUserRoleCourier] ||
-        [role isEqualToString:CMUserRoleDispatcher]) {
+        [role isEqualToString:CMUserRoleFinance] ||
+        [role isEqualToString:CMUserRoleAdmin]) {
         // CMScorecardViewController requires a scorecard instance; use a
         // placeholder list that can push into it when a scorecard is selected.
         UIViewController *vc = [self scoringPlaceholderViewController];
@@ -407,6 +407,13 @@ willConnectToSession:(UISceneSession *)session
     for (NSString *item in items) {
         // Filter admin tab for non-admin roles
         if ([item isEqualToString:@"Admin"] && ![role isEqualToString:CMUserRoleAdmin]) {
+            continue;
+        }
+        // Filter scoring tab to reviewer/finance/admin only
+        if ([item isEqualToString:@"Scoring"] &&
+            !([role isEqualToString:CMUserRoleReviewer] ||
+              [role isEqualToString:CMUserRoleFinance] ||
+              [role isEqualToString:CMUserRoleAdmin])) {
             continue;
         }
 

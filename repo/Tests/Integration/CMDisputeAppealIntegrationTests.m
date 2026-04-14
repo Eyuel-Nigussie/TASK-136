@@ -22,6 +22,7 @@
 #import "CMNotificationCenterService.h"
 #import "CMTenantContext.h"
 #import "CMUserAccount.h"
+#import "CMErrorCodes.h"
 #import "NSManagedObjectContext+CMHelpers.h"
 
 @interface CMDisputeAppealIntegrationTests : CMIntegrationTestCase
@@ -49,6 +50,9 @@
     [self insertTestRubric:@"rubric-dispute"];
     [self saveContext];
 
+    // Switch to reviewer for manual grading and finalization (role enforcement).
+    [self switchToUser:self.reviewerUser];
+
     // Create and finalize scorecard
     CMScoringEngine *engine = [[CMScoringEngine alloc] initWithContext:self.testContext];
     NSError *error = nil;
@@ -69,6 +73,9 @@
     XCTAssertTrue([scorecard isFinalized], @"Scorecard must be finalized");
 
     [self saveContext];
+
+    // Switch back to courier (default context).
+    [self switchToUser:self.courierUser];
 
     if (outOrder) *outOrder = order;
     return scorecard;
@@ -119,9 +126,9 @@
     }];
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 
-    // ---- Step 4: Switch to reviewer user context ----
-    [self switchToUser:self.reviewerUser];
-    XCTAssertEqualObjects([CMTenantContext shared].currentRole, CMUserRoleReviewer);
+    // ---- Step 4: CS user opens appeal (only courier/cs/admin may open appeals) ----
+    // Remain as CS user since reviewers are not authorized to open appeals.
+    XCTAssertEqualObjects([CMTenantContext shared].currentRole, CMUserRoleCustomerService);
 
     // ---- Step 5: Open appeal via CMAppealService ----
     CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
@@ -142,7 +149,10 @@
     XCTAssertNotNil(appeal.beforeScoreSnapshotJSON[@"totalPoints"],
                     @"Snapshot should contain totalPoints");
 
-    // ---- Step 6: Assign reviewer + verify audit entry is written ----
+    // ---- Step 6: Switch to reviewer to assign + verify audit entry is written ----
+    [self switchToUser:self.reviewerUser];
+    XCTAssertEqualObjects([CMTenantContext shared].currentRole, CMUserRoleReviewer);
+
     NSError *assignError = nil;
     BOOL assigned = [appealService assignReviewer:self.reviewerUser.userId
                                         toAppeal:appeal
@@ -276,7 +286,8 @@
     CMOrder *order = nil;
     CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
 
-    [self switchToUser:self.reviewerUser];
+    // CS opens the appeal (only courier/cs/admin may open).
+    [self switchToUser:self.csUser];
 
     CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
     NSError *err = nil;
@@ -284,7 +295,10 @@
                                        scorecard:scorecard
                                           reason:@"Test reason"
                                            error:&err];
-    XCTAssertNotNil(appeal);
+    XCTAssertNotNil(appeal, @"CS should be able to open appeal: %@", err);
+
+    // Switch to reviewer to attempt decision without assignment
+    [self switchToUser:self.reviewerUser];
 
     // Try to submit decision without assigning a reviewer first
     NSError *decisionErr = nil;
@@ -295,6 +309,131 @@
                                            error:&decisionErr];
     XCTAssertFalse(decided, @"Decision should fail without assigned reviewer");
     XCTAssertNotNil(decisionErr, @"Error should describe the failure");
+}
+
+#pragma mark - Test: Appeal Authorization — Dispatcher Cannot Open Appeals
+
+- (void)testDispatcherCannotOpenAppeal {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    [self switchToUser:self.dispatcherUser];
+
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMAppeal *appeal = [appealService openAppeal:nil
+                                       scorecard:scorecard
+                                          reason:@"Dispatcher attempt"
+                                           error:&err];
+    XCTAssertNil(appeal, @"Dispatcher should not be allowed to open appeals");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
+}
+
+#pragma mark - Test: Appeal Authorization — Finance Cannot Open Appeals
+
+- (void)testFinanceCannotOpenAppeal {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    [self switchToUser:self.financeUser];
+
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMAppeal *appeal = [appealService openAppeal:nil
+                                       scorecard:scorecard
+                                          reason:@"Finance attempt"
+                                           error:&err];
+    XCTAssertNil(appeal, @"Finance should not be allowed to open appeals");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
+}
+
+#pragma mark - Test: Appeal Authorization — Courier Cannot Assign Reviewer
+
+- (void)testCourierCannotAssignReviewer {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    // Courier opens appeal (allowed).
+    [self switchToUser:self.courierUser];
+
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMAppeal *appeal = [appealService openAppeal:nil
+                                       scorecard:scorecard
+                                          reason:@"Courier appeal"
+                                           error:&err];
+    XCTAssertNotNil(appeal, @"Courier should be able to open appeal: %@", err);
+
+    // Courier tries to assign reviewer (not allowed).
+    NSError *assignErr = nil;
+    BOOL assigned = [appealService assignReviewer:self.reviewerUser.userId
+                                        toAppeal:appeal
+                                           error:&assignErr];
+    XCTAssertFalse(assigned, @"Courier should not be allowed to assign reviewers");
+    XCTAssertNotNil(assignErr);
+    XCTAssertEqual(assignErr.code, CMErrorCodePermissionDenied);
+}
+
+#pragma mark - Test: Appeal Authorization — Courier Cannot Submit Decision
+
+- (void)testCourierCannotSubmitDecision {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    // CS opens appeal.
+    [self switchToUser:self.csUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMAppeal *appeal = [appealService openAppeal:nil
+                                       scorecard:scorecard
+                                          reason:@"Test"
+                                           error:&err];
+    XCTAssertNotNil(appeal);
+
+    // Reviewer assigns themselves.
+    [self switchToUser:self.reviewerUser];
+    [appealService assignReviewer:self.reviewerUser.userId toAppeal:appeal error:nil];
+
+    // Courier tries to submit decision.
+    [self switchToUser:self.courierUser];
+    NSError *decisionErr = nil;
+    BOOL decided = [appealService submitDecision:CMAppealDecisionUphold
+                                          appeal:appeal
+                                     afterScores:nil
+                                           notes:@"Courier decision"
+                                           error:&decisionErr];
+    XCTAssertFalse(decided, @"Courier should not be allowed to submit decisions");
+    XCTAssertNotNil(decisionErr);
+    XCTAssertEqual(decisionErr.code, CMErrorCodePermissionDenied);
+}
+
+#pragma mark - Test: Appeal Authorization — Courier Cannot Close Appeals
+
+- (void)testCourierCannotCloseAppeal {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    // CS opens, reviewer decides.
+    [self switchToUser:self.csUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard reason:@"Test" error:nil];
+    XCTAssertNotNil(appeal);
+
+    [self switchToUser:self.reviewerUser];
+    [appealService assignReviewer:self.reviewerUser.userId toAppeal:appeal error:nil];
+    [appealService submitDecision:CMAppealDecisionUphold appeal:appeal afterScores:nil
+                            notes:@"Upheld" error:nil];
+    XCTAssertNotNil(appeal.decision);
+
+    // Courier tries to close.
+    [self switchToUser:self.courierUser];
+    NSError *closeErr = nil;
+    BOOL closed = [appealService closeAppeal:appeal resolution:@"Done" error:&closeErr];
+    XCTAssertFalse(closed, @"Courier should not be allowed to close appeals");
+    XCTAssertNotNil(closeErr);
+    XCTAssertEqual(closeErr.code, CMErrorCodePermissionDenied);
 }
 
 @end

@@ -209,6 +209,13 @@ static NSString * const kActionCellId = @"ActionCell";
 }
 
 - (void)performRoleChange:(CMUserAccount *)user toRole:(NSString *)newRole {
+    // Service-layer admin role enforcement (not just UI gating)
+    NSString *currentRole = [CMTenantContext shared].currentRole;
+    if (![currentRole isEqualToString:CMUserRoleAdmin]) {
+        [CMHaptics error];
+        return;
+    }
+
     // Preflight session check
     NSError *preflightErr = nil;
     if (![[CMSessionManager shared] preflightSensitiveActionWithError:&preflightErr]) {
@@ -248,11 +255,25 @@ static NSString * const kActionCellId = @"ActionCell";
 }
 
 - (void)forceLogout:(CMUserAccount *)user {
+    // Service-layer admin role enforcement (not just UI gating)
+    NSString *currentRole = [CMTenantContext shared].currentRole;
+    if (![currentRole isEqualToString:CMUserRoleAdmin]) {
+        [CMHaptics error];
+        return;
+    }
+
     UIAlertController *confirm = [UIAlertController alertControllerWithTitle:@"Force Logout"
                                                                     message:[NSString stringWithFormat:@"Force logout user %@?", user.displayName ?: user.username]
                                                              preferredStyle:UIAlertControllerStyleAlert];
     [confirm addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [confirm addAction:[UIAlertAction actionWithTitle:@"Force Logout" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        // Session preflight for destructive admin action
+        NSError *preflightErr = nil;
+        if (![[CMSessionManager shared] preflightSensitiveActionWithError:&preflightErr]) {
+            [CMHaptics error];
+            return;
+        }
+
         user.forceLogoutAt = [NSDate date];
         user.updatedAt = [NSDate date];
 
@@ -260,6 +281,13 @@ static NSString * const kActionCellId = @"ActionCell";
         [user.managedObjectContext save:&err];
         if (!err) {
             [CMHaptics success];
+
+            // Audit the forced logout action
+            [[CMPermissionChangeAuditor shared] recordRoleChange:user.userId
+                                                         oldRole:user.role
+                                                         newRole:user.role
+                                                          reason:@"Admin forced logout"
+                                                      completion:nil];
         } else {
             [CMHaptics error];
         }
@@ -269,6 +297,12 @@ static NSString * const kActionCellId = @"ActionCell";
 }
 
 - (void)showDiagnostics {
+    // Service-layer admin role enforcement
+    if (![[CMTenantContext shared].currentRole isEqualToString:CMUserRoleAdmin]) {
+        [CMHaptics error];
+        return;
+    }
+
     NSArray<NSString *> *logs = [[CMDebugLogger shared] currentBufferSnapshot];
     NSString *logText = logs.count > 0 ? [logs componentsJoinedByString:@"\n"] : @"No debug logs available.";
 
@@ -314,16 +348,19 @@ static NSString * const kActionCellId = @"ActionCell";
 }
 
 - (void)shareLogText:(NSString *)logText {
-    // Warn the admin that debug logs may contain operational identifiers
-    // before proceeding with the export.
+    // Export uses the sanitized buffer with IDs/UUIDs/emails redacted.
+    NSArray<NSString *> *sanitizedLogs = [[CMDebugLogger shared] sanitizedBufferSnapshotForExport];
+    NSString *sanitizedText = sanitizedLogs.count > 0 ?
+        [sanitizedLogs componentsJoinedByString:@"\n"] : @"No debug logs available.";
+
     UIAlertController *warning = [UIAlertController alertControllerWithTitle:@"Export Warning"
-                                                                    message:@"Debug logs may contain operational identifiers. Ensure export is handled securely."
+                                                                    message:@"Debug logs have been sanitized (IDs, UUIDs, and email-like patterns redacted). Ensure export is handled securely."
                                                              preferredStyle:UIAlertControllerStyleAlert];
     [warning addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [warning addAction:[UIAlertAction actionWithTitle:@"Export" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
         // Create temp file for share sheet export per section 16
         NSString *tempPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"couriermatch-debug.log"];
-        [logText writeToFile:tempPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        [sanitizedText writeToFile:tempPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
         NSURL *fileURL = [NSURL fileURLWithPath:tempPath];
 
         UIActivityViewController *shareVC = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];

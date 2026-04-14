@@ -27,6 +27,11 @@ typedef NS_ENUM(NSInteger, CMLogLevel) {
    message:(NSString *)message;
 
 - (NSArray<NSString *> *)currentBufferSnapshot;
+
+/// Returns a sanitized copy of the buffer with IDs, UUIDs, and potential PII
+/// patterns redacted. Use this for export rather than `currentBufferSnapshot`.
+- (NSArray<NSString *> *)sanitizedBufferSnapshotForExport;
+
 - (void)flushToDisk;
 
 /// Returns a redacted version of a sensitive identifier for safe logging.

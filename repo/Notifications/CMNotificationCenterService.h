@@ -71,6 +71,12 @@ extern NSNotificationName const CMNotificationUnreadCountDidChangeNotification;
 - (nullable NSArray<CMNotificationItem *> *)unreadNotificationsForCurrentUser:(NSUInteger)limit
                                                                         error:(NSError **)error;
 
+/// Returns all active notifications (read and unread) for the current user,
+/// ordered by createdAt descending. Provides a history/archive view.
+/// @param limit Maximum number to return (0 = all).
+- (nullable NSArray<CMNotificationItem *> *)allNotificationsForCurrentUser:(NSUInteger)limit
+                                                                     error:(NSError **)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

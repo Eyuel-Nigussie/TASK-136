@@ -63,6 +63,46 @@ static NSUInteger const kRingCapacity = 2048;
     return snap;
 }
 
+- (NSArray<NSString *> *)sanitizedBufferSnapshotForExport {
+    NSArray<NSString *> *raw = [self currentBufferSnapshot];
+    NSMutableArray<NSString *> *sanitized = [NSMutableArray arrayWithCapacity:raw.count];
+
+    // Patterns to redact: UUIDs, email-like strings, long hex sequences, userId/tenantId values
+    static NSRegularExpression *uuidRegex = nil;
+    static NSRegularExpression *emailRegex = nil;
+    static NSRegularExpression *hexIdRegex = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        uuidRegex = [NSRegularExpression regularExpressionWithPattern:
+            @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+            options:0 error:nil];
+        emailRegex = [NSRegularExpression regularExpressionWithPattern:
+            @"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+            options:0 error:nil];
+        hexIdRegex = [NSRegularExpression regularExpressionWithPattern:
+            @"\\b[0-9a-fA-F]{16,}\\b"
+            options:0 error:nil];
+    });
+
+    for (NSString *line in raw) {
+        NSMutableString *scrubbed = [line mutableCopy];
+        NSRange fullRange = NSMakeRange(0, scrubbed.length);
+
+        [uuidRegex replaceMatchesInString:scrubbed options:0 range:fullRange
+                             withTemplate:@"<ID-REDACTED>"];
+        fullRange = NSMakeRange(0, scrubbed.length);
+        [emailRegex replaceMatchesInString:scrubbed options:0 range:fullRange
+                              withTemplate:@"<EMAIL-REDACTED>"];
+        fullRange = NSMakeRange(0, scrubbed.length);
+        [hexIdRegex replaceMatchesInString:scrubbed options:0 range:fullRange
+                              withTemplate:@"<HEX-REDACTED>"];
+
+        [sanitized addObject:[scrubbed copy]];
+    }
+
+    return [sanitized copy];
+}
+
 + (NSString *)redact:(NSString *)value {
     if (!value) { return @"***"; }
     if (value.length > 12) {

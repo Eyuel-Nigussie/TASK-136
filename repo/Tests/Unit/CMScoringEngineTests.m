@@ -34,9 +34,10 @@
     [super setUp];
     self.ctx = [CMTestCoreDataHelper inMemoryContext];
     // The scoring engine uses repositories that require a tenant context.
+    // Manual grading and finalization require reviewer role.
     [[CMTenantContext shared] setUserId:@"test-user"
                                tenantId:@"test-tenant"
-                                   role:@"courier"];
+                                   role:@"reviewer"];
 }
 
 - (void)tearDown {
@@ -461,6 +462,120 @@
     XCTAssertNotNil(error);
     XCTAssertEqual(error.code, CMErrorCodeScorecardAlreadyFinalized,
         @"Error code should be CMErrorCodeScorecardAlreadyFinalized");
+}
+
+#pragma mark - Role Enforcement: Manual Grading Denied for Courier
+
+- (void)testManualGrade_CourierRole_Denied {
+    [[CMTenantContext shared] setUserId:@"test-courier"
+                               tenantId:@"test-tenant"
+                                   role:@"courier"];
+
+    [self standardRubric];
+    CMDeliveryScorecard *scorecard = [self scorecardForOrder:@"order-role-1"];
+
+    CMScoringEngine *engine = [[CMScoringEngine alloc] initWithContext:self.ctx];
+    NSError *error = nil;
+    BOOL ok = [engine recordManualGrade:scorecard
+                                itemKey:@"professionalism"
+                                 points:15.0
+                                  notes:nil
+                                  error:&error];
+
+    XCTAssertFalse(ok, @"Courier should not be allowed to record manual grades");
+    XCTAssertNotNil(error);
+    XCTAssertEqual(error.code, CMErrorCodePermissionDenied);
+}
+
+- (void)testManualGrade_DispatcherRole_Denied {
+    [[CMTenantContext shared] setUserId:@"test-dispatcher"
+                               tenantId:@"test-tenant"
+                                   role:@"dispatcher"];
+
+    [self standardRubric];
+    CMDeliveryScorecard *scorecard = [self scorecardForOrder:@"order-role-2"];
+
+    CMScoringEngine *engine = [[CMScoringEngine alloc] initWithContext:self.ctx];
+    NSError *error = nil;
+    BOOL ok = [engine recordManualGrade:scorecard
+                                itemKey:@"professionalism"
+                                 points:15.0
+                                  notes:nil
+                                  error:&error];
+
+    XCTAssertFalse(ok, @"Dispatcher should not be allowed to record manual grades");
+    XCTAssertNotNil(error);
+    XCTAssertEqual(error.code, CMErrorCodePermissionDenied);
+}
+
+#pragma mark - Role Enforcement: Finalization Denied for Courier
+
+- (void)testFinalize_CourierRole_Denied {
+    [[CMTenantContext shared] setUserId:@"test-courier"
+                               tenantId:@"test-tenant"
+                                   role:@"courier"];
+
+    [self standardRubric];
+    CMDeliveryScorecard *scorecard = [self scorecardForOrder:@"order-role-3"];
+    scorecard.automatedResults = @[
+        @{@"itemKey": @"on_time", @"points": @(10.0), @"maxPoints": @(10.0), @"evidence": @"ok"}
+    ];
+    scorecard.manualResults = @[
+        @{@"itemKey": @"professionalism", @"points": @(15.0), @"maxPoints": @(20.0), @"notes": @"ok"}
+    ];
+
+    CMScoringEngine *engine = [[CMScoringEngine alloc] initWithContext:self.ctx];
+    NSError *error = nil;
+    BOOL ok = [engine finalizeScorecard:scorecard error:&error];
+
+    XCTAssertFalse(ok, @"Courier should not be allowed to finalize scorecards");
+    XCTAssertNotNil(error);
+    XCTAssertEqual(error.code, CMErrorCodePermissionDenied);
+}
+
+- (void)testFinalize_DispatcherRole_Denied {
+    [[CMTenantContext shared] setUserId:@"test-dispatcher"
+                               tenantId:@"test-tenant"
+                                   role:@"dispatcher"];
+
+    [self standardRubric];
+    CMDeliveryScorecard *scorecard = [self scorecardForOrder:@"order-role-4"];
+    scorecard.automatedResults = @[
+        @{@"itemKey": @"on_time", @"points": @(10.0), @"maxPoints": @(10.0), @"evidence": @"ok"}
+    ];
+    scorecard.manualResults = @[
+        @{@"itemKey": @"professionalism", @"points": @(15.0), @"maxPoints": @(20.0), @"notes": @"ok"}
+    ];
+
+    CMScoringEngine *engine = [[CMScoringEngine alloc] initWithContext:self.ctx];
+    NSError *error = nil;
+    BOOL ok = [engine finalizeScorecard:scorecard error:&error];
+
+    XCTAssertFalse(ok, @"Dispatcher should not be allowed to finalize scorecards");
+    XCTAssertNotNil(error);
+    XCTAssertEqual(error.code, CMErrorCodePermissionDenied);
+}
+
+#pragma mark - Role Enforcement: Admin Can Grade and Finalize
+
+- (void)testManualGrade_AdminRole_Allowed {
+    [[CMTenantContext shared] setUserId:@"test-admin"
+                               tenantId:@"test-tenant"
+                                   role:@"admin"];
+
+    [self standardRubric];
+    CMDeliveryScorecard *scorecard = [self scorecardForOrder:@"order-role-5"];
+
+    CMScoringEngine *engine = [[CMScoringEngine alloc] initWithContext:self.ctx];
+    NSError *error = nil;
+    BOOL ok = [engine recordManualGrade:scorecard
+                                itemKey:@"professionalism"
+                                 points:15.0
+                                  notes:nil
+                                  error:&error];
+
+    XCTAssertTrue(ok, @"Admin should be allowed to record manual grades");
+    XCTAssertNil(error);
 }
 
 @end

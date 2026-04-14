@@ -146,10 +146,12 @@ static NSString * const kNotifCellId = @"NotifCell";
 #pragma mark - Notification List VC
 
 @interface CMNotificationListViewController () <UITableViewDataSource, UITableViewDelegate>
+@property (nonatomic, strong) UISegmentedControl *filterControl;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) NSArray<CMNotificationItem *> *notifications;
 @property (nonatomic, strong) CMNotificationCenterService *notifService;
 @property (nonatomic, assign) BOOL isDispatcher;
+@property (nonatomic, assign) BOOL showAllNotifications;
 @end
 
 @implementation CMNotificationListViewController
@@ -162,7 +164,9 @@ static NSString * const kNotifCellId = @"NotifCell";
     self.notifService = [[CMNotificationCenterService alloc] init];
     self.notifications = @[];
     self.isDispatcher = [[CMTenantContext shared].currentRole isEqualToString:@"dispatcher"];
+    self.showAllNotifications = NO;
 
+    [self setupFilterControl];
     [self setupTableView];
     [self registerNotifications];
     [self loadData];
@@ -177,6 +181,26 @@ static NSString * const kNotifCellId = @"NotifCell";
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)setupFilterControl {
+    _filterControl = [[UISegmentedControl alloc] initWithItems:@[@"Unread", @"All"]];
+    _filterControl.translatesAutoresizingMaskIntoConstraints = NO;
+    _filterControl.selectedSegmentIndex = 0;
+    _filterControl.accessibilityLabel = @"Filter notifications";
+    [_filterControl addTarget:self action:@selector(filterChanged:) forControlEvents:UIControlEventValueChanged];
+
+    [self.view addSubview:_filterControl];
+    [NSLayoutConstraint activateConstraints:@[
+        [_filterControl.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
+        [_filterControl.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:16],
+        [_filterControl.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-16],
+    ]];
+}
+
+- (void)filterChanged:(UISegmentedControl *)sender {
+    self.showAllNotifications = (sender.selectedSegmentIndex == 1);
+    [self loadData];
 }
 
 - (void)setupTableView {
@@ -196,7 +220,7 @@ static NSString * const kNotifCellId = @"NotifCell";
 
     [self.view addSubview:_tableView];
     [NSLayoutConstraint activateConstraints:@[
-        [_tableView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [_tableView.topAnchor constraintEqualToAnchor:_filterControl.bottomAnchor constant:8],
         [_tableView.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor],
         [_tableView.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor],
         [_tableView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
@@ -224,7 +248,12 @@ static NSString * const kNotifCellId = @"NotifCell";
 
 - (void)loadData {
     NSError *error = nil;
-    NSArray<CMNotificationItem *> *items = [self.notifService unreadNotificationsForCurrentUser:0 error:&error];
+    NSArray<CMNotificationItem *> *items;
+    if (self.showAllNotifications) {
+        items = [self.notifService allNotificationsForCurrentUser:0 error:&error];
+    } else {
+        items = [self.notifService unreadNotificationsForCurrentUser:0 error:&error];
+    }
     self.notifications = items ?: @[];
     [self.tableView reloadData];
 }

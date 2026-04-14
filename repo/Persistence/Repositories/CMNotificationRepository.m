@@ -22,6 +22,18 @@
                               error:error];
 }
 
+- (NSArray<CMNotificationItem *> *)allForUser:(NSString *)userId
+                                            limit:(NSUInteger)limit
+                                            error:(NSError **)error {
+    NSPredicate *p = [NSPredicate predicateWithFormat:
+                      @"recipientUserId == %@ AND status == %@",
+                      userId, CMNotificationStatusActive];
+    return [self fetchWithPredicate:p
+                    sortDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"createdAt" ascending:NO]]
+                              limit:limit
+                              error:error];
+}
+
 - (NSUInteger)countInBucket:(NSString *)bucket error:(NSError **)error {
     NSFetchRequest *req = [self scopedFetchRequestWithPredicate:
                            [NSPredicate predicateWithFormat:@"rateLimitBucket == %@", bucket]];

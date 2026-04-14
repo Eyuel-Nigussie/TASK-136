@@ -12,6 +12,7 @@
 #import "CMTenantContext.h"
 #import "CMAuditService.h"
 #import "CMUserAccount.h"
+#import "CMPermissionMatrix.h"
 #import "CMError.h"
 #import "CMDebugLogger.h"
 
@@ -56,6 +57,17 @@
         return nil;
     }
 
+    // 1b. Role check: only couriers (own score) and customer service (dispute intake) may open appeals.
+    if (![tc.currentRole isEqualToString:CMUserRoleCourier] &&
+        ![tc.currentRole isEqualToString:CMUserRoleCustomerService] &&
+        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                    message:@"Only couriers, customer service, and admins may open appeals"];
+        }
+        return nil;
+    }
+
     // 2. Create the appeal entity.
     CMAppealRepository *appealRepo = [[CMAppealRepository alloc] initWithContext:self.context];
     CMAppeal *appeal = [appealRepo insertAppeal];
@@ -95,6 +107,17 @@
                  error:(NSError **)error {
     NSParameterAssert(reviewerId.length > 0);
     NSParameterAssert(appeal);
+
+    // 0. Role check: only admins and reviewers may assign reviewers to appeals.
+    CMTenantContext *tcAssign = [CMTenantContext shared];
+    if (![tcAssign.currentRole isEqualToString:CMUserRoleAdmin] &&
+        ![tcAssign.currentRole isEqualToString:CMUserRoleReviewer]) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                    message:@"Only admins and reviewers may assign reviewers to appeals"];
+        }
+        return NO;
+    }
 
     // Cannot assign reviewer to a decided appeal.
     if (appeal.decision) {
@@ -175,7 +198,7 @@
         return NO;
     }
 
-    // 4. Validate current user is the assigned reviewer.
+    // 4. Validate current user is authenticated and has reviewer or finance role.
     CMTenantContext *tc = [CMTenantContext shared];
     if (![tc isAuthenticated]) {
         if (error) {
@@ -185,6 +208,18 @@
         return NO;
     }
 
+    // 4a. Role check: only reviewers, finance, and admins may submit decisions.
+    if (![tc.currentRole isEqualToString:CMUserRoleReviewer] &&
+        ![tc.currentRole isEqualToString:CMUserRoleFinance] &&
+        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                    message:@"Only reviewers, finance, and admins may submit appeal decisions"];
+        }
+        return NO;
+    }
+
+    // 4b. Validate current user is the assigned reviewer.
     if (![tc.currentUserId isEqualToString:appeal.assignedReviewerId]) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodePermissionDenied
@@ -261,7 +296,7 @@
         return NO;
     }
 
-    // 2. If monetaryImpact, require Finance role to close.
+    // 2. Role check: only reviewers, finance, and admins may close appeals.
     CMTenantContext *tc = [CMTenantContext shared];
     if (![tc isAuthenticated]) {
         if (error) {
@@ -271,6 +306,17 @@
         return NO;
     }
 
+    if (![tc.currentRole isEqualToString:CMUserRoleReviewer] &&
+        ![tc.currentRole isEqualToString:CMUserRoleFinance] &&
+        ![tc.currentRole isEqualToString:CMUserRoleAdmin]) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                    message:@"Only reviewers, finance, and admins may close appeals"];
+        }
+        return NO;
+    }
+
+    // 2b. If monetaryImpact, require Finance role specifically.
     if (appeal.monetaryImpact) {
         if (![tc.currentRole isEqualToString:CMUserRoleFinance]) {
             if (error) {

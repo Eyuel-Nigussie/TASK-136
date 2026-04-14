@@ -286,6 +286,16 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
     return [self.repository unreadForUser:userId limit:limit error:error];
 }
 
+- (NSArray<CMNotificationItem *> *)allNotificationsForCurrentUser:(NSUInteger)limit
+                                                             error:(NSError **)error {
+    NSString *userId = [CMTenantContext shared].currentUserId;
+    if (!userId) {
+        CMLogWarn(kTag, @"allNotifications: no current user");
+        return @[];
+    }
+    return [self.repository allForUser:userId limit:limit error:error];
+}
+
 #pragma mark - Digest Management
 
 /// Finds an existing rolling digest for the given saturated bucket, or creates

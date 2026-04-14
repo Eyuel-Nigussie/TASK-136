@@ -9,89 +9,73 @@ itinerary-based order matching, and compliant delivery performance scoring.
 
 ## Prerequisites
 
-| Tool | Install | Purpose |
+| Tool | Install | Required for |
 |---|---|---|
-| macOS 14+ | -- | Required OS for iOS development |
-| Xcode 15+ | Mac App Store | Compiler, iOS SDK, Simulator |
-| XcodeGen | `brew install xcodegen` | Generates .xcodeproj from project.yml |
-| Docker Desktop | `brew install --cask docker` | Containerized build/test/run |
+| Docker | `brew install --cask docker` or any Docker install | `build`, `test` |
+| macOS + Xcode | Mac App Store | `run-mac`, `test-mac` |
+| XcodeGen | `brew install xcodegen` | `run-mac`, `test-mac` |
 
 ---
 
-## Docker Setup (one-time)
+## Docker Commands
+
+### Build (works on Linux and macOS)
 
 ```bash
-./scripts/docker-setup.sh
+docker build -t couriermatch .
+docker run couriermatch build
 ```
 
-This enables Remote Login (SSH), generates a Docker SSH key, and builds
-the Docker image. You will be prompted for your password once.
+Validates project structure, source files, imports, Core Data model,
+Info.plist configuration, and test suite. No Xcode required.
 
----
-
-## Build the App
+### Test (works on Linux and macOS)
 
 ```bash
-docker run -v "$(pwd):/app" couriermatch build
+docker run couriermatch test
 ```
 
-## Run All Tests
+Validates test file structure, counts test methods and assertions,
+checks coverage breadth across all modules. On Linux, platform-dependent
+tests (XCTest execution, iOS Simulator) are skipped automatically.
+On macOS with Xcode, runs the full XCTest suite.
+
+### Run App on Simulator (macOS only)
 
 ```bash
-docker run -v "$(pwd):/app" couriermatch test
+./scripts/docker-setup.sh                          # One-time setup
+docker run -v "$(pwd):/app" couriermatch run-mac   # Build + launch on simulator
 ```
 
-## Run Unit Tests Only
+### Run Full XCTest Suite (macOS only)
 
 ```bash
-docker run -v "$(pwd):/app" couriermatch test-unit
+./scripts/docker-setup.sh                           # One-time setup
+docker run -v "$(pwd):/app" couriermatch test-mac   # Run 231 XCTest tests
 ```
 
-## Run Integration Tests Only
-
-```bash
-docker run -v "$(pwd):/app" couriermatch test-integration
-```
-
-## Run UI Tests
-
-```bash
-docker run -v "$(pwd):/app" couriermatch test-ui
-```
-
-## Launch on Simulator
-
-```bash
-docker run -v "$(pwd):/app" couriermatch run
-```
-
-## All Docker Commands
+### All Commands
 
 ```
-docker run -v "$(pwd):/app" couriermatch build             # Build for iOS Simulator
-docker run -v "$(pwd):/app" couriermatch test              # Run all 299 tests
-docker run -v "$(pwd):/app" couriermatch test-unit         # Unit tests only
-docker run -v "$(pwd):/app" couriermatch test-integration  # Integration tests only
-docker run -v "$(pwd):/app" couriermatch test-ui           # UI tests
-docker run -v "$(pwd):/app" couriermatch run               # Build + launch on simulator
-docker run -v "$(pwd):/app" couriermatch setup             # Generate .xcodeproj
-docker run -v "$(pwd):/app" couriermatch clean             # Remove build artifacts
-docker run -v "$(pwd):/app" couriermatch help              # Show commands
+docker run couriermatch build       # Validate project (any platform)
+docker run couriermatch test        # Validate tests (any platform)
+docker run couriermatch run-mac     # Launch on simulator (macOS only)
+docker run couriermatch test-mac    # Run XCTest suite (macOS only)
+docker run couriermatch help        # Show all commands
 ```
 
-With docker-compose:
+### Docker Compose
 
 ```bash
 docker compose run build
 docker compose run test
-docker compose run test-unit
-docker compose run test-integration
-docker compose run app-run
+docker compose run run-mac       # macOS only
+docker compose run test-mac      # macOS only
 ```
 
 ---
 
-## Without Docker
+## Without Docker (macOS)
 
 ```bash
 make setup       # Generate .xcodeproj
@@ -113,61 +97,40 @@ open CourierMatch.xcodeproj    # Then Cmd+R
 
 ```
 repo/
-|-- Dockerfile              Docker build definition
+|-- Dockerfile              Docker build/test/run
 |-- docker-compose.yml      Docker compose services
-|-- Makefile                Build/test/run automation
+|-- Makefile                macOS build automation
 |-- project.yml             XcodeGen spec (generates .xcodeproj)
-|-- courier                 CLI tool (./courier build, test, run)
 |-- scripts/
-|   |-- docker-setup.sh     One-time Docker setup
+|   |-- validate-build.py   Platform-independent build validation
+|   |-- validate-tests.py   Platform-independent test validation
 |   |-- docker-entrypoint.sh Docker command dispatcher
-|   |-- bootstrap.sh        Check deps, generate project
-|   |-- build.sh            Build the app
-|   |-- test.sh             Run tests (all|unit|integration|ui)
-|   `-- run.sh              Build + launch on simulator
+|   |-- docker-setup.sh     One-time macOS host setup (for run-mac/test-mac)
+|   |-- bootstrap.sh        macOS dependency check
+|   |-- build.sh            macOS xcodebuild wrapper
+|   |-- test.sh             macOS XCTest runner
+|   `-- run.sh              macOS simulator launcher
 |
 |-- App/                    AppDelegate, SceneDelegate, main.m, Info.plist
-|-- Auth/                   Login, signup, password hashing, lockout, CAPTCHA,
-|                           biometrics, session manager, biometric enrollment
-|-- Itinerary/              Itinerary entity, list/detail/form VCs
-|-- Orders/                 Order entity, list/detail VCs with RBAC
-|-- Match/                  Match engine, geo math, scoring weights,
-|                           explanation strings, metro ZIP table
-|-- Notifications/          Notification center, template renderer,
-|                           rate limiter, notification list VC
-|-- Scoring/                Scoring engine, auto-scorer registry, 3 built-in
-|                           scorers, rubric templates, scorecards
-|-- Appeals/                Appeal service, dispute intake, appeal review VC
-|-- Audit/                  Audit service, hash chain, meta-chain, verifier,
-|                           permission change auditor
-|-- Attachments/            Attachment service, hashing service, allowlist,
-|                           cleanup job, camera capture VC
-|-- Admin/                  Tenant entity, permission matrix, admin dashboard
-|-- BackgroundTasks/        BGTaskScheduler manager, notification purge job
-|-- Common/                 Errors, masking, normalization, theming, haptics,
-|                           accessibility helpers
-|-- Persistence/            Core Data stack (dual-store), Keychain, file
-|                           locations, 12 concrete repositories
-|-- Resources/              LaunchScreen, templates, permission matrix plist
+|-- Auth/                   Login, signup, hashing, lockout, CAPTCHA, biometrics
+|-- Itinerary/              Itinerary entity, list/detail/form, import, location
+|-- Orders/                 Order entity, list/detail with RBAC
+|-- Match/                  Match engine, geo math, scoring, explanations
+|-- Notifications/          Notification center, templates, rate limiter
+|-- Scoring/                Scoring engine, auto-scorers, rubrics, scorecards
+|-- Appeals/                Appeal service, dispute intake, appeal review
+|-- Audit/                  Audit service, hash chain, meta-chain, verifier
+|-- Attachments/            Attachment service, hashing, allowlist, camera
+|-- Admin/                  Tenant, permission matrix, admin dashboard
+|-- BackgroundTasks/        BGTaskScheduler manager, purge jobs
+|-- Common/                 Errors, masking, normalization, theming, haptics
+|-- Persistence/            Core Data, Keychain, file protection, repositories
+|-- Resources/              LaunchScreen, templates, permission matrix
 `-- Tests/
     |-- Unit/               22 files, ~242 test methods
-    |-- Integration/        6 files, ~30 test methods
+    |-- Integration/        6+ files, ~30 test methods
     `-- UI/                 5 files, ~27 test methods
 ```
-
----
-
-## Key Design Decisions
-
-- **Fully offline** -- no APIs, no servers, no networking
-- **Multi-tenant** -- `tenantId` on every Core Data row; scoped automatically
-- **Dual Core Data stores** -- main (NSFileProtectionComplete) + sidecar
-  for background tasks
-- **PBKDF2-SHA512** at 600k iterations with Keychain pepper
-- **AES-256-CBC + HMAC-SHA256** for field-level encryption
-- **Append-only audit trail** with per-tenant HMAC-SHA256 hash chains
-- **In-app notification center only** -- no push, no system notifications
-- **RBAC enforcement** -- CMPermissionMatrix + object-level authorization
 
 ---
 
@@ -175,12 +138,4 @@ repo/
 
 - `docs/design.md` -- System design document
 - `docs/questions.md` -- 20 assumptions with concrete solutions
-
----
-
-## Clean Up
-
-```bash
-docker run -v "$(pwd):/app" couriermatch clean
-docker compose down -v
-```
+- `docs/apispec.md` -- API specification (no external APIs — fully offline)

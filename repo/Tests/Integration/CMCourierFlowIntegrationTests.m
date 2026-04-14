@@ -183,6 +183,9 @@
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 
     // ---- Step 11: Create scorecard via CMScoringEngine ----
+    // Switch to reviewer role — manual grading and finalization require reviewer.
+    [self switchToUser:self.reviewerUser];
+
     [self insertTestRubric:@"rubric-001"];
     [self saveContext];
 

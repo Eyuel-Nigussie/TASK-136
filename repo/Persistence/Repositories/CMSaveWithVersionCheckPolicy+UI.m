@@ -14,8 +14,9 @@
 fromViewController:(UIViewController *)viewController
          completion:(void (^)(BOOL saved))completion {
 
-    // First attempt: use a "keep mine" resolver so we can detect conflicts
-    // without immediately committing the user's choice.
+    // Phase 1: Detect conflicts WITHOUT committing any changes.
+    // Use a "detect-only" resolver that captures both sides but returns KeepTheirs
+    // so the object remains at the server's state (no user changes applied yet).
     NSMutableDictionary<NSString *, id> *theirValues = [NSMutableDictionary dictionary];
     NSMutableDictionary<NSString *, id> *mineValues  = [NSMutableDictionary dictionary];
 
@@ -28,10 +29,11 @@ fromViewController:(UIViewController *)viewController
                              toObject:object
                              baseVersion:baseVersion
                              resolver:^CMFieldMergeResolution(NSString *field, id mine, id theirs) {
-                                 // Capture values for potential UI display; default to keep mine.
+                                 // Capture both values for UI display.
                                  if (theirs) theirValues[field] = theirs;
                                  if (mine)   mineValues[field]  = mine;
-                                 return CMFieldMergeResolutionKeepMine;
+                                 // Keep theirs for now — do NOT apply user changes yet.
+                                 return CMFieldMergeResolutionKeepTheirs;
                              }
                              mergedFields:&mergedFields
                              conflictFields:&conflictFields
@@ -40,13 +42,14 @@ fromViewController:(UIViewController *)viewController
     switch (outcome) {
         case CMSaveOutcomeSaved:
         case CMSaveOutcomeAutoMerged:
+            // No conflicts — changes applied cleanly.
             CMLogInfo(@"versioncheck.ui", @"Save succeeded (outcome=%ld)", (long)outcome);
             if (completion) completion(YES);
             return;
 
         case CMSaveOutcomeResolvedAndSaved:
-            // Conflicts were resolved as "keep mine" automatically above.
-            // Present alert to let user confirm or switch to "keep theirs".
+            // Conflicts were detected; object currently holds server values.
+            // Present the choice to the user BEFORE committing either side.
             break;
 
         case CMSaveOutcomeFailed:
@@ -67,22 +70,23 @@ fromViewController:(UIViewController *)viewController
             return;
     }
 
-    // If we reach here, there were conflicts that we auto-resolved as "keep mine".
-    // Show an alert describing the conflicts so the user can accept or switch.
+    // If no actual conflict fields, the auto-merge handled everything.
     if (!conflictFields || conflictFields.count == 0) {
         if (completion) completion(YES);
         return;
     }
 
+    // Phase 2: Present the conflict choice BEFORE applying user's changes.
     dispatch_async(dispatch_get_main_queue(), ^{
         NSMutableString *message = [NSMutableString stringWithString:
             @"Another user changed the same fields you edited:\n\n"];
         for (NSString *field in conflictFields) {
             id theirs = theirValues[field];
-            [message appendFormat:@"  %@: server value = \"%@\"\n", field,
-             theirs ?: @"(empty)"];
+            id mine = mineValues[field];
+            [message appendFormat:@"  %@:\n    Yours = \"%@\"\n    Theirs = \"%@\"\n",
+             field, mine ?: @"(empty)", theirs ?: @"(empty)"];
         }
-        [message appendString:@"\nYour changes have been applied. Choose an option:"];
+        [message appendString:@"\nChoose which version to keep:"];
 
         UIAlertController *alert =
             [UIAlertController alertControllerWithTitle:@"Conflict Detected"
@@ -92,9 +96,31 @@ fromViewController:(UIViewController *)viewController
         [alert addAction:[UIAlertAction actionWithTitle:@"Keep Mine"
                                                   style:UIAlertActionStyleDefault
                                                 handler:^(UIAlertAction *action) {
-            // Already saved with "keep mine" above.
             CMLogInfo(@"versioncheck.ui", @"User chose Keep Mine for %lu fields",
                       (unsigned long)conflictFields.count);
+            // Now apply user's values for the conflicting fields.
+            NSMutableDictionary *userChanges = [NSMutableDictionary dictionary];
+            for (NSString *field in conflictFields) {
+                id mine = mineValues[field];
+                if (mine) {
+                    userChanges[field] = mine;
+                }
+            }
+            if (userChanges.count > 0) {
+                NSNumber *curV = [object valueForKey:@"version"];
+                int64_t currentVersion = curV ? curV.longLongValue : 0;
+                NSError *applyErr = nil;
+                [CMSaveWithVersionCheckPolicy saveChanges:userChanges
+                                                 toObject:object
+                                              baseVersion:currentVersion
+                                                 resolver:nil
+                                             mergedFields:NULL
+                                           conflictFields:NULL
+                                                    error:&applyErr];
+                if (applyErr) {
+                    CMLogError(@"versioncheck.ui", @"Apply mine failed: %@", applyErr);
+                }
+            }
             if (completion) completion(YES);
         }]];
 
@@ -103,30 +129,7 @@ fromViewController:(UIViewController *)viewController
                                                 handler:^(UIAlertAction *action) {
             CMLogInfo(@"versioncheck.ui", @"User chose Keep Theirs for %lu fields",
                       (unsigned long)conflictFields.count);
-            // Re-save with the server's values for conflicting fields.
-            NSMutableDictionary *revertChanges = [NSMutableDictionary dictionary];
-            for (NSString *field in conflictFields) {
-                id theirs = theirValues[field];
-                if (theirs) {
-                    revertChanges[field] = theirs;
-                }
-            }
-            if (revertChanges.count > 0) {
-                // Read current version from object and do a fast-path save.
-                NSNumber *curV = [object valueForKey:@"version"];
-                int64_t currentVersion = curV ? curV.longLongValue : 0;
-                NSError *revertErr = nil;
-                [CMSaveWithVersionCheckPolicy saveChanges:revertChanges
-                                                 toObject:object
-                                              baseVersion:currentVersion
-                                                 resolver:nil
-                                             mergedFields:NULL
-                                           conflictFields:NULL
-                                                    error:&revertErr];
-                if (revertErr) {
-                    CMLogError(@"versioncheck.ui", @"Revert to theirs failed: %@", revertErr);
-                }
-            }
+            // Server values are already in place — nothing to do.
             if (completion) completion(YES);
         }]];
 
