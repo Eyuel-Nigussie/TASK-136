@@ -25,13 +25,13 @@ case "${ACTION}" in
     build)
         echo "=== CourierMatch Build Validation ==="
         echo ""
-        python3 /app/scripts/validate-build.py
+        /usr/bin/python3 /opt/scripts/validate-build.py
         ;;
 
     test)
         echo "=== CourierMatch Test Validation ==="
         echo ""
-        python3 /app/scripts/validate-tests.py
+        /usr/bin/python3 /opt/scripts/validate-tests.py
         ;;
 
     run-mac|test-mac)

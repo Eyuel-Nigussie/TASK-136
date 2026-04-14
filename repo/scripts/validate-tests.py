@@ -18,7 +18,7 @@ import re
 import platform
 import subprocess
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO = os.environ.get("REPO_PATH", "/app" if os.path.isdir("/app/App") else os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 errors = []
 
 def error(msg):
