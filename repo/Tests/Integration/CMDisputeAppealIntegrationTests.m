@@ -9,6 +9,7 @@
 #import "CMDispute.h"
 #import "CMAppeal.h"
 #import "CMAppealService.h"
+#import "CMDisputeService.h"
 #import "CMDeliveryScorecard.h"
 #import "CMScoringEngine.h"
 #import "CMRubricTemplate.h"
@@ -434,6 +435,134 @@
     XCTAssertFalse(closed, @"Courier should not be allowed to close appeals");
     XCTAssertNotNil(closeErr);
     XCTAssertEqual(closeErr.code, CMErrorCodePermissionDenied);
+}
+
+#pragma mark - Test: Reviewer Assignment — Non-Reviewer Role Rejected
+
+- (void)testAssignReviewerRejectsCourierTarget {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    [self switchToUser:self.csUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard reason:@"Test" error:nil];
+    XCTAssertNotNil(appeal);
+
+    // Reviewer tries to assign a courier (not a reviewer-eligible role).
+    [self switchToUser:self.reviewerUser];
+    NSError *assignErr = nil;
+    BOOL assigned = [appealService assignReviewer:self.courierUser.userId
+                                        toAppeal:appeal
+                                           error:&assignErr];
+    XCTAssertFalse(assigned, @"Assigning a courier as reviewer should be rejected");
+    XCTAssertNotNil(assignErr);
+    XCTAssertEqual(assignErr.code, CMErrorCodeValidationFailed);
+}
+
+- (void)testAssignReviewerRejectsNonExistentUser {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    [self switchToUser:self.csUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard reason:@"Test" error:nil];
+    XCTAssertNotNil(appeal);
+
+    [self switchToUser:self.reviewerUser];
+    NSError *assignErr = nil;
+    BOOL assigned = [appealService assignReviewer:@"nonexistent-user-id"
+                                        toAppeal:appeal
+                                           error:&assignErr];
+    XCTAssertFalse(assigned, @"Assigning a non-existent user should be rejected");
+    XCTAssertNotNil(assignErr);
+    XCTAssertEqual(assignErr.code, CMErrorCodeValidationFailed);
+}
+
+- (void)testAssignReviewerAcceptsReviewerTarget {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    [self switchToUser:self.csUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard reason:@"Test" error:nil];
+    XCTAssertNotNil(appeal);
+
+    [self switchToUser:self.reviewerUser];
+    NSError *assignErr = nil;
+    BOOL assigned = [appealService assignReviewer:self.reviewerUser.userId
+                                        toAppeal:appeal
+                                           error:&assignErr];
+    XCTAssertTrue(assigned, @"Assigning a reviewer should succeed: %@", assignErr);
+    XCTAssertEqualObjects(appeal.assignedReviewerId, self.reviewerUser.userId);
+}
+
+#pragma mark - Test: Dispute Service Authorization
+
+- (void)testDisputeServiceAllowsCSToOpenDispute {
+    [self switchToUser:self.csUser];
+    CMOrder *order = [self insertTestOrder:@"ord-dispute-svc-1"];
+    [self saveContext];
+
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
+                                           reason:@"Damaged" category:@"damage" error:&err];
+    XCTAssertNotNil(dispute, @"CS should be able to open disputes: %@", err);
+    XCTAssertEqualObjects(dispute.status, CMDisputeStatusOpen);
+}
+
+- (void)testDisputeServiceAllowsCourierToOpenDispute {
+    [self switchToUser:self.courierUser];
+    CMOrder *order = [self insertTestOrder:@"ord-dispute-svc-2"];
+    [self saveContext];
+
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
+                                           reason:@"Wrong item" category:@"wrong_item" error:&err];
+    XCTAssertNotNil(dispute, @"Courier should be able to open disputes: %@", err);
+}
+
+- (void)testDisputeServiceRejectsDispatcherFromOpeningDispute {
+    [self switchToUser:self.dispatcherUser];
+    CMOrder *order = [self insertTestOrder:@"ord-dispute-svc-3"];
+    [self saveContext];
+
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
+                                           reason:@"Test" category:@"other" error:&err];
+    XCTAssertNil(dispute, @"Dispatcher should not be able to open disputes");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
+}
+
+- (void)testDisputeServiceRejectsFinanceFromOpeningDispute {
+    [self switchToUser:self.financeUser];
+    CMOrder *order = [self insertTestOrder:@"ord-dispute-svc-4"];
+    [self saveContext];
+
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
+                                           reason:@"Test" category:@"other" error:&err];
+    XCTAssertNil(dispute, @"Finance should not be able to open disputes");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
+}
+
+- (void)testDisputeServiceRejectsReviewerFromOpeningDispute {
+    [self switchToUser:self.reviewerUser];
+    CMOrder *order = [self insertTestOrder:@"ord-dispute-svc-5"];
+    [self saveContext];
+
+    CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
+                                           reason:@"Test" category:@"other" error:&err];
+    XCTAssertNil(dispute, @"Reviewer should not be able to open disputes");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
 }
 
 @end

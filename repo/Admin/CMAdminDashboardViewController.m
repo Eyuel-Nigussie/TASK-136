@@ -9,7 +9,9 @@
 #import "CMCoreDataStack.h"
 #import "CMTenantContext.h"
 #import "CMPermissionChangeAuditor.h"
+#import "CMAuditService.h"
 #import "CMAuditVerifier.h"
+#import "CMAuthService.h"
 #import "CMDebugLogger.h"
 #import "CMSessionManager.h"
 #import "CMHaptics.h"
@@ -17,6 +19,7 @@
 
 typedef NS_ENUM(NSInteger, CMAdminSection) {
     CMAdminSectionUserManagement = 0,
+    CMAdminSectionAccountDeletion,
     CMAdminSectionDiagnostics,
     CMAdminSectionForcedLogout,
     CMAdminSectionCount
@@ -296,6 +299,88 @@ static NSString * const kActionCellId = @"ActionCell";
     [self presentViewController:confirm animated:YES completion:nil];
 }
 
+- (void)deleteAccount:(CMUserAccount *)user {
+    // Service-layer admin role enforcement
+    NSString *currentRole = [CMTenantContext shared].currentRole;
+    if (![currentRole isEqualToString:CMUserRoleAdmin]) {
+        [CMHaptics error];
+        return;
+    }
+
+    // Prevent self-deletion
+    NSString *currentUserId = [CMTenantContext shared].currentUserId;
+    if ([currentUserId isEqualToString:user.userId]) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Cannot Delete"
+                                                                      message:@"You cannot delete your own account."
+                                                               preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
+
+    UIAlertController *confirm = [UIAlertController alertControllerWithTitle:@"Delete Account"
+                                                                    message:[NSString stringWithFormat:
+                                                                             @"Permanently delete account for %@?\n\n"
+                                                                             @"This action requires biometric verification and cannot be undone.",
+                                                                             user.displayName ?: user.username]
+                                                             preferredStyle:UIAlertControllerStyleAlert];
+    [confirm addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [confirm addAction:[UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        // Biometric re-auth required for destructive action (per prompt requirement)
+        [[CMAuthService shared] reauthForDestructiveActionWithReason:@"Confirm account deletion"
+                                                           completion:^(BOOL success, NSError *bioErr) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (!success) {
+                    [CMHaptics error];
+                    UIAlertController *failAlert = [UIAlertController alertControllerWithTitle:@"Authentication Failed"
+                                                                                      message:@"Biometric verification is required to delete accounts."
+                                                                               preferredStyle:UIAlertControllerStyleAlert];
+                    [failAlert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+                    [self presentViewController:failAlert animated:YES completion:nil];
+                    return;
+                }
+
+                // Session preflight
+                NSError *preflightErr = nil;
+                if (![[CMSessionManager shared] preflightSensitiveActionWithError:&preflightErr]) {
+                    [CMHaptics error];
+                    return;
+                }
+
+                // Soft-delete: set status to deleted and deletedAt
+                NSString *oldStatus = user.status;
+                user.status = CMUserStatusDeleted;
+                user.deletedAt = [NSDate date];
+                user.forceLogoutAt = [NSDate date]; // force logout on deletion
+                user.updatedAt = [NSDate date];
+
+                NSError *saveErr = nil;
+                [user.managedObjectContext save:&saveErr];
+                if (!saveErr) {
+                    [CMHaptics success];
+
+                    // Audit the account deletion
+                    [[CMAuditService shared] recordAction:@"user.account_deleted"
+                                               targetType:@"UserAccount"
+                                                 targetId:user.userId
+                                               beforeJSON:@{@"status": oldStatus, @"userId": user.userId}
+                                                afterJSON:@{@"status": CMUserStatusDeleted,
+                                                            @"deletedAt": [user.deletedAt description]}
+                                                   reason:@"Admin account deletion with biometric re-auth"
+                                               completion:nil];
+                } else {
+                    // Revert on failure
+                    user.status = oldStatus;
+                    user.deletedAt = nil;
+                    [CMHaptics error];
+                }
+                [self loadUsers:self.searchBar.text ?: @""];
+            });
+        }];
+    }]];
+    [self presentViewController:confirm animated:YES completion:nil];
+}
+
 - (void)showDiagnostics {
     // Service-layer admin role enforcement
     if (![[CMTenantContext shared].currentRole isEqualToString:CMUserRoleAdmin]) {
@@ -412,6 +497,7 @@ static NSString * const kActionCellId = @"ActionCell";
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     switch ((CMAdminSection)section) {
         case CMAdminSectionUserManagement: return @"User Management";
+        case CMAdminSectionAccountDeletion: return @"Account Deletion";
         case CMAdminSectionDiagnostics: return @"Diagnostics";
         case CMAdminSectionForcedLogout: return @"Force Logout";
         default: return nil;
@@ -421,6 +507,8 @@ static NSString * const kActionCellId = @"ActionCell";
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch ((CMAdminSection)section) {
         case CMAdminSectionUserManagement:
+            return (NSInteger)self.users.count;
+        case CMAdminSectionAccountDeletion:
             return (NSInteger)self.users.count;
         case CMAdminSectionDiagnostics:
             return 2; // View logs, Verify chain
@@ -437,6 +525,32 @@ static NSString * const kActionCellId = @"ActionCell";
             CMAdminUserCell *cell = [tableView dequeueReusableCellWithIdentifier:kUserCellId forIndexPath:indexPath];
             CMUserAccount *user = self.users[indexPath.row];
             [cell configureWithUser:user];
+            return cell;
+        }
+        case CMAdminSectionAccountDeletion: {
+            UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+            cell.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
+            cell.textLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+            cell.textLabel.adjustsFontForContentSizeCategory = YES;
+            cell.detailTextLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
+            cell.detailTextLabel.adjustsFontForContentSizeCategory = YES;
+
+            CMUserAccount *user = self.users[indexPath.row];
+            cell.textLabel.text = user.displayName ?: user.username;
+
+            if ([user.status isEqualToString:CMUserStatusDeleted]) {
+                cell.textLabel.textColor = [UIColor tertiaryLabelColor];
+                cell.detailTextLabel.text = @"Deleted";
+                cell.detailTextLabel.textColor = [UIColor systemRedColor];
+                cell.userInteractionEnabled = NO;
+            } else {
+                cell.textLabel.textColor = [UIColor systemRedColor];
+                cell.detailTextLabel.text = [NSString stringWithFormat:@"Role: %@", user.role];
+                cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+            }
+
+            cell.accessibilityLabel = [NSString stringWithFormat:@"Delete account %@", user.displayName ?: user.username];
+            cell.accessibilityTraits = UIAccessibilityTraitButton;
             return cell;
         }
         case CMAdminSectionDiagnostics: {
@@ -499,6 +613,13 @@ static NSString * const kActionCellId = @"ActionCell";
         case CMAdminSectionUserManagement: {
             CMUserAccount *user = self.users[indexPath.row];
             [self changeRole:user];
+            break;
+        }
+        case CMAdminSectionAccountDeletion: {
+            CMUserAccount *user = self.users[indexPath.row];
+            if (![user.status isEqualToString:CMUserStatusDeleted]) {
+                [self deleteAccount:user];
+            }
             break;
         }
         case CMAdminSectionDiagnostics: {

@@ -9,6 +9,7 @@
 #import "CMDeliveryScorecard.h"
 #import "CMAppealRepository.h"
 #import "CMDisputeRepository.h"
+#import "CMUserRepository.h"
 #import "CMTenantContext.h"
 #import "CMAuditService.h"
 #import "CMUserAccount.h"
@@ -124,6 +125,33 @@
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodeValidationFailed
                                     message:@"Cannot assign reviewer to an appeal that already has a decision"];
+        }
+        return NO;
+    }
+
+    // Validate the target reviewer exists in the same tenant and has an allowed role.
+    CMUserRepository *userRepo = [[CMUserRepository alloc] initWithContext:self.context];
+    NSError *lookupErr = nil;
+    CMUserAccount *targetUser = [userRepo findByUserId:reviewerId error:&lookupErr];
+    if (!targetUser) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodeValidationFailed
+                                    message:[NSString stringWithFormat:
+                                             @"Reviewer '%@' not found in the current tenant",
+                                             [CMDebugLogger redact:reviewerId]]];
+        }
+        return NO;
+    }
+
+    // The assigned reviewer must have reviewer, finance, or admin role.
+    if (![targetUser.role isEqualToString:CMUserRoleReviewer] &&
+        ![targetUser.role isEqualToString:CMUserRoleFinance] &&
+        ![targetUser.role isEqualToString:CMUserRoleAdmin]) {
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodeValidationFailed
+                                    message:[NSString stringWithFormat:
+                                             @"User '%@' does not have a reviewer-eligible role (has '%@')",
+                                             [CMDebugLogger redact:reviewerId], targetUser.role]];
         }
         return NO;
     }

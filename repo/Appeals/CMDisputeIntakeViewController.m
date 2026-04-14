@@ -6,7 +6,7 @@
 #import "CMDisputeIntakeViewController.h"
 #import "CMOrder.h"
 #import "CMDispute.h"
-#import "CMDisputeRepository.h"
+#import "CMDisputeService.h"
 #import "CMNotificationCenterService.h"
 #import "CMAttachmentService.h"
 #import "CMCameraCaptureViewController.h"
@@ -238,15 +238,19 @@ static NSArray<NSString *> *CMDisputeReasonCategories(void) {
         return;
     }
 
-    // Create dispute
-    CMDisputeRepository *repo = [[CMDisputeRepository alloc] initWithContext:[CMCoreDataStack shared].viewContext];
-    CMDispute *dispute = [repo insertDispute];
-    dispute.orderId = self.order ? self.order.orderId : orderRef;
-    dispute.reason = reason;
-    dispute.reasonCategory = category;
-    dispute.status = CMDisputeStatusOpen;
-    dispute.openedBy = [CMTenantContext shared].currentUserId ?: @"";
-    dispute.openedAt = [NSDate date];
+    // Create dispute via service layer (enforces role/auth/tenant checks).
+    CMDisputeService *disputeService = [[CMDisputeService alloc] initWithContext:[CMCoreDataStack shared].viewContext];
+    NSError *serviceErr = nil;
+    CMDispute *dispute = [disputeService openDisputeForOrder:self.order
+                                                     orderId:orderRef
+                                                      reason:reason
+                                                    category:category
+                                                       error:&serviceErr];
+    if (!dispute) {
+        [CMHaptics error];
+        [self showValidationError:serviceErr.localizedDescription ?: @"Failed to open dispute."];
+        return;
+    }
 
     NSError *saveErr = nil;
     [[CMCoreDataStack shared].viewContext save:&saveErr];

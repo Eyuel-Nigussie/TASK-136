@@ -3,7 +3,7 @@
 Native iOS application (Objective-C / UIKit) for offline courier dispatching,
 itinerary-based order matching, and compliant delivery performance scoring.
 
-**238 source files** | **~27,000 lines Objective-C** | **299 test methods**
+**240+ source files** | **~27,000 lines Objective-C** | **310+ test methods**
 
 ---
 
@@ -70,7 +70,7 @@ docker run -v "$(pwd):/app" couriermatch run-mac   # Build + launch on simulator
 
 ```bash
 ./scripts/docker-setup.sh                           # One-time setup
-docker run -v "$(pwd):/app" couriermatch test-mac   # Run 231 XCTest tests
+docker run -v "$(pwd):/app" couriermatch test-mac   # Run full XCTest suite
 ```
 
 ---

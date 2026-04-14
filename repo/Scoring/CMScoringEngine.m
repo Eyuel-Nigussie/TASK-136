@@ -13,6 +13,7 @@
 #import "CMRubricRepository.h"
 #import "CMScorecardRepository.h"
 #import "CMAttachmentRepository.h"
+#import "CMOrderRepository.h"
 #import "CMTenantContext.h"
 #import "CMAuditService.h"
 #import "CMUserAccount.h"
@@ -587,15 +588,12 @@ static NSString * const kResultNotesKey     = @"notes";
     return nil;
 }
 
-/// Fetches the order associated with a scorecard.
+/// Fetches the order associated with a scorecard using the tenant-scoped repository.
 - (CMOrder *)orderForScorecard:(CMDeliveryScorecard *)scorecard error:(NSError **)error {
-    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:@"Order"];
-    request.predicate = [NSPredicate predicateWithFormat:@"orderId == %@", scorecard.orderId];
-    request.fetchLimit = 1;
-
+    CMOrderRepository *orderRepo = [[CMOrderRepository alloc] initWithContext:self.context];
     NSError *fetchErr = nil;
-    NSArray *results = [self.context executeFetchRequest:request error:&fetchErr];
-    if (!results || results.count == 0) {
+    CMOrder *order = [orderRepo findByOrderId:scorecard.orderId error:&fetchErr];
+    if (!order) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodeValidationFailed
                                     message:[NSString stringWithFormat:
@@ -605,7 +603,7 @@ static NSString * const kResultNotesKey     = @"notes";
         }
         return nil;
     }
-    return results.firstObject;
+    return order;
 }
 
 @end
