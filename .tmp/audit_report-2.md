@@ -1,201 +1,234 @@
-# Delivery Acceptance & Project Architecture Audit (Static-Only)
-
-## 1. Verdict
+1. Verdict
 - Overall conclusion: **Partial Pass**
 
-## 2. Scope and Static Verification Boundary
-- Reviewed scope:
-  - Repository structure, docs, build/test metadata: `repo/README.md:10`, `repo/project.yml:25`, `docs/design.md:1`, `docs/apispec.md:1`
-  - iOS app entry points and app wiring: `repo/App/main.m:12`, `repo/App/AppDelegate.m:20`, `repo/App/SceneDelegate.m:70`
-  - Security/auth/session/RBAC/tenant-scoping: `repo/Auth/CMAuthService.m:60`, `repo/Auth/CMSessionManager.m:146`, `repo/Admin/CMPermissionMatrix.m:41`, `repo/Persistence/Repositories/CMRepository.m:31`
-  - Core business modules (match, notifications, scoring, appeals, attachments, audit): `repo/Match/CMMatchEngine.m:149`, `repo/Notifications/CMNotificationCenterService.m:55`, `repo/Scoring/CMScoringEngine.m:65`, `repo/Appeals/CMAppealService.m:40`, `repo/Attachments/CMAttachmentService.m:73`, `repo/Audit/CMAuditService.m:72`
-  - Tests and test config: `repo/Tests/Unit`, `repo/Tests/Integration`, `repo/Tests/UI`, `repo/project.yml:124`
-- Not reviewed:
-  - Runtime behavior on device/simulator, performance timing, battery behavior, memory pressure behavior in execution.
-- Intentionally not executed:
-  - App run/build/test, Docker, simulators, external services.
-- Manual verification required for:
-  - Cold-start <1.5s, memory-warning handling effectiveness, BG task scheduling behavior under iOS scheduler, UI rendering quality across devices/orientations, biometric UX edge cases.
+2. Scope and Static Verification Boundary
+- What was reviewed:
+  - Documentation/config/build metadata: `repo/README.md:10-141`, `repo/project.yml:25-209`, `docs/design.md:14-25`, `docs/apispec.md:3-14`
+  - App entry/wiring: `repo/App/main.m:1-17`, `repo/App/AppDelegate.m:20-47`, `repo/App/SceneDelegate.m:70-105`
+  - Auth/session/security/hardening: `repo/Auth/CMAuthService.m:60-295`, `repo/Auth/CMPasswordPolicy.m:25-53`, `repo/Auth/CMLockoutPolicy.m:11-21`, `repo/Auth/CMSessionManager.m:18-225`, `repo/Persistence/Keychain/CMKeychain.m:21-48`
+  - Core business/data/security modules: Match, Notifications, Scoring, Appeals, Audit, Attachments, Repositories, Core Data model and stack.
+  - Tests/logging (static audit only): `repo/Tests/Unit/*`, `repo/Tests/Integration/*`, `repo/Tests/UI/*`, `repo/Common/Errors/CMDebugLogger.m:48-127`
+- What was not reviewed:
+  - Runtime behavior, simulator behavior, actual BGTask execution, performance timing, battery/thermal runtime characteristics.
+- What was intentionally not executed:
+  - App run, tests, Docker, external services (per audit boundary).
+- Claims requiring manual verification:
+  - Cold start <1.5s target, real BG task execution scheduling on device, memory-pressure behavior under load, split-view UX quality under real device conditions.
 
-## 3. Repository / Requirement Mapping Summary
-- Prompt core goal mapped: offline courier dispatch + itinerary matching + compliant scoring/audit for multiple roles.
-- Core flow mapping found:
-  - Itinerary + match ranking with detour/time/capacity weights and explanation components: `repo/Match/CMMatchEngine.m:459`, `repo/Match/CMMatchScoringWeights.m:17`, `repo/Match/CMMatchExplanation.m:10`
-  - In-app notification center, rate limit/coalescing/read/ack: `repo/Notifications/CMNotificationCenterService.m:55`, `repo/Notifications/CMNotificationRateLimiter.m:11`
-  - Scoring, manual grading, appeal lifecycle, audit trail: `repo/Scoring/CMScoringEngine.m:65`, `repo/Appeals/CMAppealService.m:40`, `repo/Audit/CMAuditService.m:93`
-  - Local auth, session timeout, lockout/CAPTCHA/biometric: `repo/Auth/CMAuthService.m:153`, `repo/Auth/CMSessionManager.m:18`, `repo/Auth/CMLockoutPolicy.m:11`, `repo/Auth/CMCaptchaChallenge.m:63`
-- Key constraints mapped:
-  - Tenant boundary + uniqueness + optimistic locking + file/keychain protection present: `repo/Persistence/CoreData/.../contents:105`, `repo/Persistence/Repositories/CMTenantContext.m:48`, `repo/Persistence/Repositories/CMSaveWithVersionCheckPolicy+UI.m:96`, `repo/Persistence/CoreData/CMCoreDataStack.m:80`, `repo/Persistence/Keychain/CMKeychain.m:31`
+3. Repository / Requirement Mapping Summary
+- Prompt core goal mapped: offline courier dispatch + itinerary-based matching + compliant scoring/audit, with local auth/security and multi-tenant Core Data boundaries.
+- Main implementation areas mapped:
+  - Dispatch/matching: `repo/Match/CMMatchEngine.m`
+  - Notifications/rate-limit/read-ack: `repo/Notifications/CMNotificationCenterService.m`, `repo/Notifications/CMNotificationRateLimiter.m`
+  - Scoring/manual review/appeals/audit: `repo/Scoring/CMScoringEngine.m`, `repo/Appeals/CMAppealService.m`, `repo/Audit/CMAuditService.m`
+  - Local auth/session/security hardening: `repo/Auth/*`, `repo/Persistence/*`
+  - iOS UIKit/iPad/dark mode/dynamic type evidence: `repo/App/SceneDelegate.m`, `repo/Tests/UI/*`
 
-## 4. Section-by-section Review
+4. Section-by-section Review
 
-### 1. Hard Gates
-#### 1.1 Documentation and static verifiability
+### 4.1 Hard Gates
+
+#### 4.1.1 Documentation and static verifiability
 - Conclusion: **Pass**
-- Rationale: startup/build/test structure and entry points are documented and statically consistent.
-- Evidence: `repo/README.md:10`, `repo/README.md:96`, `repo/project.yml:25`, `repo/App/AppDelegate.m:20`
+- Rationale: Clear startup/build/test docs and project structure are present; static code organization is traceable.
+- Evidence: `repo/README.md:10-133`, `repo/project.yml:25-209`, `docs/design.md:62-140`
+- Manual verification note: Runtime commands are documented but not executed in this audit.
 
-#### 1.2 Material deviation from Prompt
+#### 4.1.2 Material deviation from Prompt
 - Conclusion: **Partial Pass**
-- Rationale: implementation is aligned to offline iOS operations/audit scenario, but explicit requirement for account deletion with biometric re-auth is not delivered as a feature.
-- Evidence: deletion-related re-auth exists only as unused API (`repo/Auth/CMAuthService.h:85`, `repo/Auth/CMAuthService.m:382`), admin actions omit account deletion (`repo/Admin/CMAdminDashboardViewController.h:5`, `repo/Admin/CMAdminDashboardViewController.m:498`)
-- Manual verification note: N/A (static evidence sufficient for missing feature in reviewed scope)
+- Rationale: Most core flows are implemented; however, security/authorization inconsistencies and attachment-tenant path defect materially weaken prompt-fit for compliant operations.
+- Evidence: `repo/Persistence/Files/CMFileLocations.m:45-49`, `repo/Attachments/CMAttachmentService.m:111-117`, `repo/Appeals/CMDisputeService.m:47-56`, `repo/Appeals/CMAppealService.m:61-70`
 
-### 2. Delivery Completeness
-#### 2.1 Coverage of explicit core requirements
+### 4.2 Delivery Completeness
+
+#### 4.2.1 Coverage of explicit core requirements
 - Conclusion: **Partial Pass**
-- Rationale: most core requirements are implemented, but at least one explicit requirement is missing (account deletion flow + biometric re-auth for that action).
-- Evidence: implemented examples `repo/Match/CMMatchScoringWeights.m:22`, `repo/Notifications/CMNotificationRateLimiter.m:11`, `repo/Auth/CMSessionManager.m:18`; missing account-deletion implementation evidence `repo/Admin/CMAdminDashboardViewController.m:498`, `repo/Auth/CMAuthService.h:85`
+- Rationale:
+  - Implemented: offline architecture, match scoring constraints, notification rate-limit/read-ack, scoring+appeals+audit trail, local auth lockout/CAPTCHA/session timeout, attachment allowlist/size.
+  - Gaps/risks: attachment path UUID enforcement can break attachment workflows for non-UUID tenant IDs; function-level auth/object checks are inconsistent for disputes/appeals.
+- Evidence:
+  - Implemented: `repo/Match/CMMatchScoringWeights.m:22-25`, `repo/Notifications/CMNotificationRateLimiter.m:11-21`, `repo/Auth/CMSessionManager.m:18-21`, `repo/Attachments/CMAttachmentAllowlist.m:10-11,112-116`
+  - Gaps: `repo/Persistence/Files/CMFileLocations.m:45-49`, `repo/Auth/CMLoginViewController.m:317-323`, `repo/Auth/CMSignupViewController.m:346-354`, `repo/Appeals/CMDisputeService.m:58-76`, `repo/Appeals/CMAppealService.m:72-87`
 
-#### 2.2 End-to-end deliverable vs partial/demo
+#### 4.2.2 End-to-end 0→1 deliverable vs partial/demo
 - Conclusion: **Pass**
-- Rationale: complete multi-module app structure, data model, docs, and substantial tests are present.
-- Evidence: `repo/README.md:96`, `repo/project.yml:25`, `repo/Persistence/CoreData/.../contents:6`, `repo/Tests/Integration/CMCourierFlowIntegrationTests.m:29`
+- Rationale: Multi-module app structure, domain services, persistence, and substantial tests indicate product-style delivery rather than snippet/demo.
+- Evidence: `repo/README.md:96-133`, `repo/project.yml:25-205`, `repo/Tests/Integration/CMCourierFlowIntegrationTests.m:37-261`
 
-### 3. Engineering and Architecture Quality
-#### 3.1 Structure and module decomposition
+### 4.3 Engineering and Architecture Quality
+
+#### 4.3.1 Structure/module decomposition
 - Conclusion: **Pass**
-- Rationale: clear module decomposition by domain (Auth/Match/Scoring/Appeals/Audit/etc.) with repositories/services/controllers.
-- Evidence: `repo/README.md:114`, `docs/design.md:101`, `repo/project.yml:30`
+- Rationale: Clear modular decomposition across Auth, Match, Notifications, Scoring, Appeals, Audit, Admin, Persistence; no single-file pileup.
+- Evidence: `repo/README.md:114-129`, `repo/project.yml:30-84`
 
-#### 3.2 Maintainability and extensibility
+#### 4.3.2 Maintainability/extensibility
 - Conclusion: **Partial Pass**
-- Rationale: overall extensible structure exists, but some security-sensitive flows rely on controller/UI gating instead of consistent service-level authorization.
-- Evidence: direct dispute creation in VC `repo/Appeals/CMDisputeIntakeViewController.m:241`; service-layer role checks exist elsewhere `repo/Appeals/CMAppealService.m:60`
+- Rationale: Layering and repositories are maintainable, but authorization policy is split across UI checks, plist RBAC, and service-level hardcoded role checks with drift risk.
+- Evidence: `repo/Admin/CMPermissionMatrix.m:41-46`, `repo/Resources/PermissionMatrix.plist:11-60`, `repo/Appeals/CMDisputeService.m:47-56`, `repo/Appeals/CMAppealService.m:61-70`
 
-### 4. Engineering Details and Professionalism
-#### 4.1 Error handling/logging/validation/API quality
+### 4.4 Engineering Details and Professionalism
+
+#### 4.4.1 Error handling/logging/validation
 - Conclusion: **Partial Pass**
-- Rationale: strong patterns exist (error surfaces, lockout/CAPTCHA, logging, validation), but authorization consistency and one missing feature weaken professional completeness.
-- Evidence: password/lockout/validation `repo/Auth/CMPasswordPolicy.m:46`, `repo/Auth/CMLockoutPolicy.m:15`, attachment allowlist `repo/Attachments/CMAttachmentAllowlist.m:39`; auth gaps in dispute intake `repo/Appeals/CMDisputeIntakeViewController.m:227`
+- Rationale: Validation and error-handling are generally present; logging is structured, but sensitive identifiers/messages are logged in clear text in multiple services.
+- Evidence: `repo/Scoring/CMScoringEngine.m:160-162,396-397`, `repo/Appeals/CMAppealService.m:88-90,304-305`, `repo/Common/Errors/CMDebugLogger.m:48-57,66-104`
+- Manual verification note: Actual exported log content should be manually reviewed on-device/admin flow.
 
-#### 4.2 Product-grade vs demo-level
+#### 4.4.2 Product-like organization vs demo
 - Conclusion: **Pass**
-- Rationale: codebase resembles a real product (modular architecture, persistence model, background jobs, tests, admin tools).
-- Evidence: `repo/BackgroundTasks/CMBackgroundTaskManager.m:48`, `repo/Audit/CMAuditVerifier.m:29`, `repo/Tests/Unit/CMMatchEngineTests.m:296`
+- Rationale: Delivery includes app lifecycle, storage, background jobs, UI flows, and role-driven modules.
+- Evidence: `repo/App/AppDelegate.m:20-47`, `repo/BackgroundTasks/CMBackgroundTaskManager.m:48-145`, `repo/Persistence/CoreData/CourierMatch.xcdatamodeld/CourierMatch.xcdatamodel/contents:72-335`
 
-### 5. Prompt Understanding and Requirement Fit
-#### 5.1 Business goal/usage semantics/constraints fit
+### 4.5 Prompt Understanding and Requirement Fit
+
+#### 4.5.1 Business goal, semantics, and implicit constraints
 - Conclusion: **Partial Pass**
-- Rationale: core business goal is implemented well; notable semantic gaps include missing account deletion flow and weak reviewer-assignment validation.
-- Evidence: aligned flows `repo/Match/CMMatchEngine.m:269`, `repo/Scoring/CMScoringEngine.m:403`, `repo/Appeals/CMAppealService.m:211`; gap `repo/Appeals/CMAppealService.m:133`
+- Rationale: Business semantics are mostly implemented (offline ops + audit/scoring), but authorization/object-scoping semantics for disputed flows are under-enforced and conflict with RBAC policy source.
+- Evidence: `repo/Resources/PermissionMatrix.plist:11-60`, `repo/Appeals/CMDisputeService.m:47-56`, `repo/Appeals/CMAppealService.m:61-70`, `repo/Orders/CMOrderDetailViewController.m:425-431`
 
-### 6. Aesthetics (frontend-only/full-stack)
-#### 6.1 Visual/interaction design quality
+### 4.6 Aesthetics (frontend-only/full-stack)
 - Conclusion: **Cannot Confirm Statistically**
-- Rationale: static code indicates Dark Mode, Dynamic Type, split-view support, but visual quality/alignment consistency requires runtime/manual inspection.
-- Evidence: theming + dynamic type `repo/Common/Theming/CMTheme.m:80`, iPad split wiring `repo/App/SceneDelegate.m:253`, UI tests exist `repo/Tests/UI/CMDarkModeUITests.m:31`, `repo/Tests/UI/CMDynamicTypeUITests.m:31`
-- Manual verification note: run on iPhone/iPad orientations and accessibility sizes.
+- Rationale: UIKit/dynamic type/dark-mode/split-view support is present in code and UI tests, but visual quality and interaction polish require runtime visual inspection.
+- Evidence: `repo/App/SceneDelegate.m:305-376`, `repo/Tests/UI/CMDarkModeUITests.m:31-76`, `repo/Tests/UI/CMDynamicTypeUITests.m:31-65`, `repo/Tests/UI/CMiPadSplitViewUITests.m:39-72`
+- Manual verification note: Validate on iPhone+iPad simulators/devices across orientations and accessibility sizes.
 
-## 5. Issues / Suggestions (Severity-Rated)
+5. Issues / Suggestions (Severity-Rated)
 
-### Blocker/High
-1. **Severity: High**
-- Title: Missing account deletion feature despite explicit requirement
+### Blocker
+
+1) Severity: **Blocker**
+- Title: Attachment storage path rejects non-UUID tenant IDs, breaking core attachment workflows
 - Conclusion: **Fail**
-- Evidence: only re-auth API mention, no deletion flow implementation or call sites (`repo/Auth/CMAuthService.h:85`, `repo/Auth/CMAuthService.m:382`, `repo/Admin/CMAdminDashboardViewController.m:498`)
-- Impact: explicit prompt requirement not met; destructive-action biometric requirement for account deletion cannot be satisfied in practice.
-- Minimum actionable fix: implement account deletion flow (UI + service + repository), enforce biometric re-auth before delete, add audit event and tests.
+- Evidence:
+  - Strict UUID requirement: `repo/Persistence/Files/CMFileLocations.m:45-49`
+  - Save fails if tenant dir cannot be created: `repo/Attachments/CMAttachmentService.m:111-117`
+  - Cleanup/load also depend on same resolver: `repo/Attachments/CMAttachmentCleanupJob.m:104-109`, `repo/Attachments/CMAttachmentService.m:345-349`
+  - Tenant input has no UUID format enforcement: `repo/Auth/CMLoginViewController.m:317-323`, `repo/Auth/CMSignupViewController.m:346-354`
+  - Existing integration tenant uses non-UUID format: `repo/Tests/Integration/CMIntegrationTestCase.m:26`
+- Impact: Evidence capture, dispute attachments, and attachment cleanup can silently fail for validly-entered tenant IDs, undermining prompt-critical proof/audit flows.
+- Minimum actionable fix: Align tenant ID contract end-to-end (either enforce UUID at signup/login and all seed data, or remove UUID hard requirement from `CMFileLocations` and validate/sanitize path-safe tenant IDs).
 
-2. **Severity: High**
-- Title: Reviewer assignment lacks reviewer-role and tenant validation
+### High
+
+2) Severity: **High**
+- Title: Function-level authorization and RBAC policy source are inconsistent (dispute/appeal opening)
 - Conclusion: **Fail**
-- Evidence: `assignReviewer` writes `assignedReviewerId` directly with no user lookup/role validation (`repo/Appeals/CMAppealService.m:105`, `repo/Appeals/CMAppealService.m:133`)
-- Impact: appeal can be assigned to non-reviewer or invalid principal; decision workflow integrity depends on caller behavior.
-- Minimum actionable fix: validate reviewerId exists in same tenant and has allowed role (`reviewer`, optionally `finance/admin` per policy) before assignment; reject otherwise.
+- Evidence:
+  - RBAC plist (courier lacks `disputes.open`): `repo/Resources/PermissionMatrix.plist:11-20`
+  - Service still allows courier open dispute: `repo/Appeals/CMDisputeService.m:47-50`
+  - Appeal open allows courier/cs/admin in service without mapping to matrix policy: `repo/Appeals/CMAppealService.m:61-70`
+- Impact: Security policy drift between declared RBAC and enforced service logic can permit unintended privileged actions and inconsistent behavior.
+- Minimum actionable fix: Centralize authorization decisions in one policy layer and enforce it in service methods; make UI permission checks secondary.
 
-3. **Severity: High**
-- Title: Dispute intake authorization is controller-only (no service-level guard)
-- Conclusion: **Partial Fail**
-- Evidence: direct dispute insertion in `submitTapped` with no role/permission matrix enforcement (`repo/Appeals/CMDisputeIntakeViewController.m:227`, `repo/Appeals/CMDisputeIntakeViewController.m:241`)
-- Impact: object-level authorization can be bypassed if controller path is invoked outside intended UI gate.
-- Minimum actionable fix: move dispute creation to a service enforcing role/permission checks and tenant/user ownership checks; keep UI gate as secondary defense.
+3) Severity: **High**
+- Title: Object-level authorization gaps in dispute/appeal opening
+- Conclusion: **Fail**
+- Evidence:
+  - Dispute opening validates role/auth only; no ownership/relationship check: `repo/Appeals/CMDisputeService.m:37-76`
+  - Appeal opening validates role/finalized status only; no check that courier owns scorecard/order: `repo/Appeals/CMAppealService.m:43-87`
+- Impact: Authorized roles may open disputes/appeals for records they should not control, risking workflow abuse and audit integrity issues.
+- Minimum actionable fix: Enforce per-object ownership/entitlement checks in service layer (e.g., courier must match `order.assignedCourierId` / `scorecard.courierId`; CS scope rules explicit).
+
+4) Severity: **High**
+- Title: Attachment upload action bypasses permission matrix in order detail flow
+- Conclusion: **Fail**
+- Evidence:
+  - Capture-photo action always added in UI action list: `repo/Orders/CMOrderDetailViewController.m:330,431,517`
+  - Permission matrix restricts upload permissions to courier/CS scopes: `repo/Resources/PermissionMatrix.plist:18,41`
+- Impact: Roles without upload permission can still access attachment capture path via this screen.
+- Minimum actionable fix: Gate `capture_photo` by explicit permission checks (`attachments.upload_own`/`attachments.upload_dispute`) plus object ownership constraints.
 
 ### Medium
-4. **Severity: Medium**
-- Title: Unscoped order fetch in scoring upgrade helper
-- Conclusion: **Partial Fail**
-- Evidence: direct fetch by `orderId` without scoped repository predicate (`repo/Scoring/CMScoringEngine.m:591`, `repo/Scoring/CMScoringEngine.m:597`)
-- Impact: weakens consistent tenant-isolation pattern and maintainability of auth invariants.
-- Minimum actionable fix: use `CMOrderRepository findByOrderId:` (scoped) or enforce `tenantId == currentTenantId` predicate in helper.
 
-5. **Severity: Medium**
-- Title: Prompt-fit ambiguity in signup semantics for non-courier roles
-- Conclusion: **Partial Pass**
-- Evidence: non-courier account creation restricted to authenticated admins (`repo/Auth/CMAuthService.m:67`, `repo/Auth/CMSignupViewController.m:75`)
-- Impact: may diverge from interpretation of “users sign up/sign in with username+password” for all personas.
-- Minimum actionable fix: clarify requirement or document intended policy explicitly; if needed, add controlled first-user bootstrap or invite flow for all roles.
+5) Severity: **Medium**
+- Title: Sensitive identifiers/messages are logged in plaintext in several domain services
+- Conclusion: **Partial Fail**
+- Evidence: `repo/Scoring/CMScoringEngine.m:160-162,396-397`, `repo/Appeals/CMAppealService.m:88-90,304-305`, logger stores raw lines: `repo/Common/Errors/CMDebugLogger.m:48-57`
+- Impact: Admin-visible/exported logs may expose internal IDs and business-sensitive context.
+- Minimum actionable fix: Consistently redact identifiers and sensitive strings at log callsites (or enforce redaction centrally before buffering).
+
+6) Severity: **Medium**
+- Title: Static test coverage misses key authorization/object-scope and attachment path regression points
+- Conclusion: **Fail (coverage gap)**
+- Evidence:
+  - Role tests exist for disputes/appeals but no ownership tests: `repo/Tests/Integration/CMDisputeAppealIntegrationTests.m:315-411`
+  - No tests target `CMFileLocations` tenant UUID path behavior: search result over `repo/Tests/*` (no `CMFileLocations` references)
+- Impact: Severe auth and attachment path defects can remain undetected while current suites pass.
+- Minimum actionable fix: Add targeted integration/unit tests for object ownership checks and tenant-id/attachment directory behavior.
 
 ### Low
-6. **Severity: Low**
-- Title: Documentation/test-count inconsistencies
+
+7) Severity: **Low**
+- Title: README doc path reference is inconsistent with repository layout
 - Conclusion: **Partial Fail**
-- Evidence: README states 299 test methods but also “Run 231 XCTest tests” (`repo/README.md:6`, `repo/README.md:73`)
-- Impact: reviewer confusion; weakens trust in delivery metadata.
-- Minimum actionable fix: align documented counts and generated-report outputs to one source of truth.
+- Evidence: README points to `docs/*` relative to `repo`: `repo/README.md:139-141`, while docs are located at workspace-root `docs/`.
+- Impact: Reviewer onboarding friction; lower static verifiability efficiency.
+- Minimum actionable fix: Update README paths or move docs into `repo/docs` consistently.
 
-## 6. Security Review Summary
+6. Security Review Summary
+
 - Authentication entry points: **Pass**
-  - Evidence: local signup/login/biometric entry points with lockout/captcha/session open (`repo/Auth/CMAuthService.m:60`, `repo/Auth/CMAuthService.m:153`, `repo/Auth/CMAuthService.m:299`)
+  - Evidence: signup/login/CAPTCHA/lockout/session are implemented in service layer (`repo/Auth/CMAuthService.m:60-295`, `repo/Auth/CMLockoutPolicy.m:11-21`, `repo/Auth/CMPasswordPolicy.m:25-53`).
 - Route-level authorization: **Not Applicable**
-  - Evidence: offline native app; no HTTP/routes (`docs/apispec.md:3`)
-- Object-level authorization: **Partial Pass**
-  - Evidence: positive checks in appeals and notification read/ack ownership (`repo/Appeals/CMAppealService.m:60`, `repo/Notifications/CMNotificationCenterService.m:401`); gap in dispute intake (`repo/Appeals/CMDisputeIntakeViewController.m:241`)
+  - Evidence: offline native app with no HTTP endpoints (`docs/apispec.md:3-14`).
+- Object-level authorization: **Fail**
+  - Evidence: missing ownership checks in dispute/appeal open flows (`repo/Appeals/CMDisputeService.m:37-76`, `repo/Appeals/CMAppealService.m:43-87`).
 - Function-level authorization: **Partial Pass**
-  - Evidence: role checks in manual grading/finalize/appeal decisions (`repo/Scoring/CMScoringEngine.m:283`, `repo/Scoring/CMScoringEngine.m:407`, `repo/Appeals/CMAppealService.m:211`); reviewer assignment validation gap (`repo/Appeals/CMAppealService.m:133`)
+  - Evidence: some sensitive flows are guarded (e.g., account deletion/admin checks `repo/Admin/CMAccountService.m:30-47`), but RBAC inconsistencies exist (`repo/Resources/PermissionMatrix.plist:11-60` vs service checks above).
 - Tenant/user data isolation: **Partial Pass**
-  - Evidence: repository scoping pattern and tenant predicate (`repo/Persistence/Repositories/CMRepository.m:31`, `repo/Persistence/Repositories/CMTenantContext.m:48`); unscoped helper in scoring upgrade (`repo/Scoring/CMScoringEngine.m:592`)
-- Admin/internal/debug protection: **Pass**
-  - Evidence: admin role gate and diagnostics/force-logout gating (`repo/Admin/CMAdminDashboardViewController.m:105`, `repo/Admin/CMAdminDashboardViewController.m:300`)
+  - Evidence: repository scoping enforces tenant predicate (`repo/Persistence/Repositories/CMRepository.m:31-59`), entities include `tenantId` (`repo/Persistence/CoreData/.../contents:72-335`).
+  - Caveat: pre-auth/raw lookup paths are intentionally unscoped-by-context (`repo/Persistence/Repositories/CMUserRepository.m:29-39`).
+- Admin/internal/debug protection: **Partial Pass**
+  - Evidence: admin gating exists in dashboard actions (`repo/Admin/CMAdminDashboardViewController.m:261-267,367-372`), but plaintext logging remains a residual risk (`repo/Common/Errors/CMDebugLogger.m:48-57`).
 
-## 7. Tests and Logging Review
-- Unit tests: **Pass**
-  - Evidence: broad unit coverage across auth/match/scoring/normalization/audit (`repo/Tests/Unit/CMPasswordPolicyTests.m:43`, `repo/Tests/Unit/CMMatchEngineTests.m:296`, `repo/Tests/Unit/CMScoringEngineTests.m:130`)
+7. Tests and Logging Review
+
+- Unit tests: **Pass (existence/volume), Partial (risk targeting)**
+  - Evidence: broad unit suites under `repo/Tests/Unit/*` and coverage for lockout/policy/match/scoring/versioning.
 - API/integration tests: **Partial Pass**
-  - Evidence: major flows covered (`repo/Tests/Integration/CMAuthFlowIntegrationTests.m:29`, `repo/Tests/Integration/CMCourierFlowIntegrationTests.m:29`, `repo/Tests/Integration/CMDisputeAppealIntegrationTests.m:86`), but no direct tests for dispute-intake controller authorization and no tests for account deletion flow.
+  - Evidence: integration suites for auth/courier flow/dispute-appeal/notifications/audit/account deletion exist (`repo/Tests/Integration/*.m`).
+  - Gap: key object-level authorization and attachment tenant-id edge cases not covered.
 - Logging categories/observability: **Pass**
-  - Evidence: tagged logger, levels, ring buffer, export sanitization (`repo/Common/Errors/CMDebugLogger.m:38`, `repo/Common/Errors/CMDebugLogger.m:66`)
+  - Evidence: structured level/tag logger with ring buffer and export sanitization capability (`repo/Common/Errors/CMDebugLogger.m:38-46,66-104`).
 - Sensitive-data leakage risk in logs/responses: **Partial Pass**
-  - Evidence: redaction/sanitized export exist (`repo/Common/Errors/CMDebugLogger.m:91`, `repo/Admin/CMAdminDashboardViewController.m:352`); raw buffer display still possible to admins (`repo/Admin/CMAdminDashboardViewController.m:306`).
+  - Evidence: redaction helper exists (`repo/Common/Errors/CMDebugLogger.m:106-114`) but not consistently applied at callsites (examples in Scoring/Appeals listed above).
 
-## 8. Test Coverage Assessment (Static Audit)
+8. Test Coverage Assessment (Static Audit)
 
 ### 8.1 Test Overview
-- Unit tests exist: **Yes** (`repo/Tests/Unit`)
-- Integration tests exist: **Yes** (`repo/Tests/Integration`)
-- UI tests exist: **Yes** (`repo/Tests/UI`)
-- Framework: XCTest (`repo/project.yml:125`, `repo/project.yml:174`)
-- Test entry points documented: **Yes** (`repo/README.md:51`, `repo/scripts/test.sh:21`, `repo/scripts/validate-tests.py:44`)
-- Documentation test commands provided: **Yes** (`repo/README.md:54`, `repo/README.md:80`)
+- Unit tests: present (`repo/Tests/Unit/*.m`)
+- Integration tests: present (`repo/Tests/Integration/*.m`)
+- UI tests: present (`repo/Tests/UI/*.m`)
+- Frameworks/entry points: XCTest via Xcode scheme (`repo/project.yml:192-205`)
+- Documented test commands: present (`repo/README.md:80-85`, `repo/scripts/test.sh:21-31`, `repo/run_tests.sh:7-8`)
+- Note: static validator can skip real XCTest on non-macOS (`repo/scripts/validate-tests.py:127-155`)
 
 ### 8.2 Coverage Mapping Table
 
 | Requirement / Risk Point | Mapped Test Case(s) | Key Assertion / Fixture / Mock | Coverage Assessment | Gap | Minimum Test Addition |
 |---|---|---|---|---|---|
-| Password policy (>=12, digit, symbol) | `repo/Tests/Unit/CMPasswordPolicyTests.m:43` | violation-specific assertions (`repo/Tests/Unit/CMPasswordPolicyTests.m:49`) | sufficient | none | none |
-| Lockout 5 attempts / 10 min | `repo/Tests/Unit/CMLockoutPolicyTests.m:189` | lockUntil assertions (`repo/Tests/Unit/CMLockoutPolicyTests.m:202`) | sufficient | none | none |
-| CAPTCHA after failures | `repo/Tests/Integration/CMAuthFlowIntegrationTests.m:150` | captcha-required flow assertions (`repo/Tests/Integration/CMAuthFlowIntegrationTests.m:182`) | sufficient | none | none |
-| Session timeout / forced logout | `repo/Tests/Integration/CMAuthFlowIntegrationTests.m:341` | preflight forced-logout invalidation (`repo/Tests/Integration/CMAuthFlowIntegrationTests.m:367`) | basically covered | no explicit idle timeout test by time-travel helper | add deterministic idle-timeout test for `CMSessionManager evaluateSession` |
-| Match filters/scoring boundaries (8 mi, 20 min, capacity) | `repo/Tests/Unit/CMMatchEngineTests.m:296` | boundary assertions (`repo/Tests/Unit/CMMatchEngineTests.m:340`, `repo/Tests/Unit/CMMatchEngineTests.m:430`) | sufficient | none | none |
-| Notification rate limit (5/min), digest coalescing, read/ack | `repo/Tests/Integration/CMNotificationCoalescingIntegrationTests.m:47` | sixth-notification coalesced + cascade assertions (`repo/Tests/Integration/CMNotificationCoalescingIntegrationTests.m:91`, `repo/Tests/Integration/CMNotificationCoalescingIntegrationTests.m:148`) | sufficient | none | none |
-| Appeal authorization matrix | `repo/Tests/Integration/CMDisputeAppealIntegrationTests.m:316` | deny dispatcher/finance/courier in specific actions (`repo/Tests/Integration/CMDisputeAppealIntegrationTests.m:328`, `repo/Tests/Integration/CMDisputeAppealIntegrationTests.m:374`) | basically covered | reviewer-assignment target validation not tested | add tests assigning non-reviewer/non-tenant reviewer IDs |
-| Tenant scoping behavior | `repo/Tests/Unit/CMTenantContextTests.m:79` | scoped predicate assertions (`repo/Tests/Unit/CMTenantContextTests.m:84`) | insufficient | does not test unscoped helper in `CMScoringEngine orderForScorecard` | add integration test proving cross-tenant order lookup is blocked |
-| Account deletion + biometric re-auth | none found | no call sites for reauth API (`repo/Auth/CMAuthService.m:382`) | missing | explicit prompt requirement untested and unimplemented | implement feature and add unit/integration tests |
-| Conflict resolution “Keep Mine / Keep Theirs” | `repo/Tests/Unit/CMSaveWithVersionCheckPolicyTests.m:159` | conflict-path assertions (`repo/Tests/Unit/CMSaveWithVersionCheckPolicyTests.m:183`) | sufficient (policy) | no controller-level UI conflict test | add UI/integration test on order/itinerary edit conflict prompt |
+| Password policy / lockout / CAPTCHA / auth flow | `repo/Tests/Integration/CMAuthFlowIntegrationTests.m:29-303` | lockout threshold/captcha outcomes checked (`:189-193`, `:284-299`) | sufficient | none material | keep regression tests around lockout timers |
+| Notification rate limit 5/min and digest behavior | `repo/Tests/Integration/CMNotificationCoalescingIntegrationTests.m:70-275` | digest created / cascade read-ack asserted (`:96-103`, `:170-185`, `:214-233`) | sufficient | none material | add tenant-boundary negative test |
+| Cross-user notification object authorization | `repo/Tests/Integration/CMNotificationCoalescingIntegrationTests.m:294-360` | deny markRead/markAcknowledged for other user (`:313-324`, `:347-359`) | sufficient | none material | add same-user cross-tenant negative case |
+| Dispute/appeal role authorization | `repo/Tests/Integration/CMDisputeAppealIntegrationTests.m:315-411` | dispatcher/finance/courier denial cases | basically covered | ownership-level auth untested | add tests where courier attempts appeal/dispute for another courier’s order/scorecard |
+| Audit hash-chain integrity/tamper detection | `repo/Tests/Integration/CMAuditChainIntegrationTests.m:56-171` | prevHash linkage and tamper failure asserted | sufficient | none material | add multi-tenant chain isolation check |
+| Account deletion authorization | `repo/Tests/Integration/CMAccountDeletionIntegrationTests.m:24-185` | admin-only, self-delete denied, soft-delete flags | sufficient | none material | add forced-logout propagation check |
+| Attachment tenant-path behavior | none found | n/a | missing | UUID-only path bug can escape | add unit tests for `CMFileLocations.attachmentsDirectoryForTenantId` and integration save/load with non-UUID tenant IDs |
+| Order/dispute object ownership enforcement | none found | n/a | missing | severe object-level defects can pass suites | add integration tests asserting denial when user lacks object ownership |
 
 ### 8.3 Security Coverage Audit
-- authentication: **sufficiently covered** (password, lockout, captcha, biometric gate tested statically)
-- route authorization: **not applicable** (no HTTP routes)
-- object-level authorization: **insufficiently covered** (appeal service covered; dispute-intake controller authorization not covered)
-- tenant/data isolation: **insufficiently covered** (predicate-level tests exist; unscoped helper path not covered)
-- admin/internal protection: **basically covered** (admin-role checks exist; limited direct tests for diagnostics/force-logout UI paths)
+- Authentication: **Covered meaningfully** (auth integration tests are substantial).
+- Route authorization: **Not applicable** (no API routes).
+- Object authorization: **Insufficient** (notification object checks covered; dispute/appeal ownership not covered).
+- Tenant/data isolation: **Basically covered** (tenant context/repository behavior tested, but not all edge paths).
+- Admin/internal protection: **Basically covered** (account deletion/admin role tests exist), but debug-log leakage tests absent.
 
 ### 8.4 Final Coverage Judgment
-- **Partial Pass**
-- Covered major risks: auth controls, lockout/captcha, matching boundaries, notification rate limiting/coalescing, appeal workflow basics, audit chain integrity.
-- Uncovered risks allowing severe defects to slip through: missing account deletion flow/tests, reviewer-assignment target validation, dispute-intake authorization path, and unscoped scoring helper isolation path.
+- **Final Coverage Judgment: Partial Pass**
+- Covered well: auth hardening, notifications coalescing/read-ack, audit chain integrity, admin account deletion role checks.
+- Uncovered major risks: dispute/appeal object-level authorization and attachment tenant-path regression; current tests could still pass while these severe defects remain.
 
-## 9. Final Notes
-- Audit was static-only; no runtime claims are made.
-- Strongest material defects are authorization/completeness related rather than general architecture quality.
-- Repository is substantial and mostly aligned, but the listed High issues are acceptance-relevant and should be addressed before delivery acceptance.
+9. Final Notes
+- This is a static-only determination; runtime behavior claims (performance, BG scheduling reliability, full UX polish) remain manual verification items.
+- Highest-priority remediation should focus on: (1) attachment tenant path contract, (2) centralized/consistent authorization policy enforcement, (3) object-level access checks with targeted tests.
