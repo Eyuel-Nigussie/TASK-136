@@ -12,8 +12,13 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSArray<CMNotificationItem *> *)allForUser:(NSString *)userId
                                                   limit:(NSUInteger)limit
                                                   error:(NSError **)error;
-/// Rate-limit check: count of items in the current minute bucket.
+/// Rate-limit check: count of items in a specific bucket key.
 - (NSUInteger)countInBucket:(NSString *)bucket error:(NSError **)error;
+/// Global rate-limit: count ALL notifications for a tenant in a minute,
+/// matching rateLimitBucket BEGINSWITH prefix AND ENDSWITH minuteSuffix.
+- (NSUInteger)countInGlobalBucket:(NSString *)tenantPrefix
+                     minuteSuffix:(NSString *)minuteSuffix
+                            error:(NSError **)error;
 @end
 
 NS_ASSUME_NONNULL_END

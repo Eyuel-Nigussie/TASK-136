@@ -39,4 +39,16 @@
                            [NSPredicate predicateWithFormat:@"rateLimitBucket == %@", bucket]];
     return [self.context countForFetchRequest:req error:error];
 }
+
+- (NSUInteger)countInGlobalBucket:(NSString *)tenantPrefix
+                     minuteSuffix:(NSString *)minuteSuffix
+                            error:(NSError **)error {
+    // Count ALL notifications for this tenant in this minute bucket,
+    // regardless of templateKey. Bucket format is "tenantId:templateKey:minute".
+    NSFetchRequest *req = [self scopedFetchRequestWithPredicate:
+                           [NSPredicate predicateWithFormat:
+                            @"rateLimitBucket BEGINSWITH %@ AND rateLimitBucket ENDSWITH %@",
+                            tenantPrefix, minuteSuffix]];
+    return [self.context countForFetchRequest:req error:error];
+}
 @end

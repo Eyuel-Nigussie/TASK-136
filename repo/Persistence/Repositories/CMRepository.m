@@ -28,9 +28,15 @@
     return [self scopedFetchRequestWithPredicate:nil];
 }
 
+/// Subclasses override to return NO for append-only entities (e.g., AuditEntry)
+/// that have no `deletedAt` attribute.
++ (BOOL)entitySupportsSoftDelete { return YES; }
+
 - (NSFetchRequest *)scopedFetchRequestWithPredicate:(NSPredicate *)predicate {
     NSFetchRequest *req = [NSFetchRequest fetchRequestWithEntityName:[[self class] entityName]];
-    NSPredicate *scope = [[CMTenantContext shared] scopingPredicate];
+    NSPredicate *scope = [[self class] entitySupportsSoftDelete]
+        ? [[CMTenantContext shared] scopingPredicateWithSoftDelete]
+        : [[CMTenantContext shared] scopingPredicate];
     if (scope && predicate) {
         req.predicate = [NSCompoundPredicate andPredicateWithSubpredicates:@[scope, predicate]];
     } else if (scope) {

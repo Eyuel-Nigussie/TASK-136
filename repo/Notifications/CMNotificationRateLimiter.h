@@ -2,8 +2,8 @@
 //  CMNotificationRateLimiter.h
 //  CourierMatch
 //
-//  Enforces the 5-per-minute rate limit per (tenantId, templateKey) bucket.
-//  Bucket key = "tenantId:templateKey:floor(unixTime/60)".
+//  Enforces a strict global 5-per-minute rate limit per tenant (across ALL
+//  template keys). Fail-closed: on errors, defaults to Coalesce.
 //  See design.md §6.2, questions.md Q6.
 //
 

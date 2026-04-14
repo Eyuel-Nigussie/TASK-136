@@ -3,6 +3,7 @@
 
 @implementation CMAuditRepository
 + (NSString *)entityName { return @"AuditEntry"; }
++ (BOOL)entitySupportsSoftDelete { return NO; } // AuditEntry is append-only, no deletedAt
 
 - (CMAuditEntry *)insertEntry {
     CMAuditEntry *e = [NSEntityDescription insertNewObjectForEntityForName:@"AuditEntry"

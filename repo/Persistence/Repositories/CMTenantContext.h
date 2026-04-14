@@ -34,9 +34,14 @@ extern NSNotificationName const CMTenantContextDidChangeNotification;
 /// Returns YES iff a user is currently authenticated.
 - (BOOL)isAuthenticated;
 
-/// Convenience predicate returning `tenantId == %@ AND deletedAt == nil`
+/// Convenience predicate returning `tenantId == %@`
 /// bound to the current tenant. Returns nil if no tenant is set.
+/// Use this for entities without `deletedAt` (e.g., AuditEntry).
 - (nullable NSPredicate *)scopingPredicate;
+
+/// Predicate returning `tenantId == %@ AND deletedAt == nil`.
+/// Use for entities with soft-delete support.
+- (nullable NSPredicate *)scopingPredicateWithSoftDelete;
 
 @end
 

@@ -116,6 +116,11 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
 #pragma mark - Actions
 
 - (void)assignTapped {
+    // Function-level authorization: only dispatchers with orders.assign permission
+    NSString *role = [CMTenantContext shared].currentRole;
+    if (![[CMPermissionMatrix shared] hasPermission:@"orders.assign" forRole:role]) {
+        [self showPermissionDenied]; return;
+    }
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Assign Courier"
                                                                   message:@"Enter courier ID to assign"
                                                            preferredStyle:UIAlertControllerStyleAlert];
@@ -161,6 +166,16 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
 }
 
 - (void)updateStatusTapped {
+    // Function-level authorization: courier can only update own orders
+    NSString *role = [CMTenantContext shared].currentRole;
+    if (![[CMPermissionMatrix shared] hasPermission:@"orders.update_status_own" forRole:role]) {
+        [self showPermissionDenied]; return;
+    }
+    NSString *currentUserId = [CMTenantContext shared].currentUserId;
+    if (self.order.assignedCourierId.length > 0 &&
+        ![self.order.assignedCourierId isEqualToString:currentUserId]) {
+        [self showPermissionDenied]; return;
+    }
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Update Status"
                                                                   message:nil
                                                            preferredStyle:UIAlertControllerStyleActionSheet];
@@ -215,6 +230,10 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
 }
 
 - (void)openDisputeTapped {
+    NSString *role = [CMTenantContext shared].currentRole;
+    if (![[CMPermissionMatrix shared] hasPermission:@"disputes.open" forRole:role]) {
+        [self showPermissionDenied]; return;
+    }
     CMDisputeIntakeViewController *disputeVC = [[CMDisputeIntakeViewController alloc] initWithOrder:self.order];
     [self.navigationController pushViewController:disputeVC animated:YES];
 }
@@ -546,6 +565,15 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
             }
         }
     }
+}
+
+- (void)showPermissionDenied {
+    [CMHaptics error];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Permission Denied"
+                                                                  message:@"You do not have permission to perform this action."
+                                                           preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 @end

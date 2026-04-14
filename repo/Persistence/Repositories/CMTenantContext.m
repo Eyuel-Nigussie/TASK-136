@@ -45,6 +45,12 @@ NSNotificationName const CMTenantContextDidChangeNotification = @"CMTenantContex
 - (NSPredicate *)scopingPredicate {
     NSString *tid = self.currentTenantId;
     if (!tid) { return nil; }
+    return [NSPredicate predicateWithFormat:@"tenantId == %@", tid];
+}
+
+- (NSPredicate *)scopingPredicateWithSoftDelete {
+    NSString *tid = self.currentTenantId;
+    if (!tid) { return nil; }
     return [NSPredicate predicateWithFormat:@"tenantId == %@ AND deletedAt == nil", tid];
 }
 

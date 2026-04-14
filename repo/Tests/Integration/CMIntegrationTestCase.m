@@ -208,8 +208,9 @@ static NSString * const kTestTenantName = @"Test Tenant";
                               strAttr(@"actorRole",NO), strAttr(@"action",NO),
                               strAttr(@"targetType",YES), strAttr(@"targetId",YES),
                               transAttr(@"beforeJSON"), transAttr(@"afterJSON"), strAttr(@"reason",YES),
-                              dateAttr(@"createdAt",NO), dateAttr(@"deletedAt",YES),
+                              dateAttr(@"createdAt",NO),
                               binAttr(@"prevHash"), binAttr(@"entryHash")];
+    // NOTE: AuditEntry intentionally has NO deletedAt — it is append-only.
 
     // LoginHistory
     NSEntityDescription *loginHistory = [[NSEntityDescription alloc] init];

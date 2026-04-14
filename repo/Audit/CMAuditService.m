@@ -106,7 +106,7 @@
     NSError *seedErr = nil;
     NSData *tenantSeed = [CMAuditHashChain ensureSeedForTenant:tenantId error:&seedErr];
     if (!tenantSeed) {
-        CMLogError(@"audit.service", @"seed missing for tenant %@: %@", tenantId, seedErr);
+        CMLogError(@"audit.service", @"seed missing for tenant %@: %@", [CMDebugLogger redact:tenantId], seedErr);
         if (error) *error = seedErr;
         return nil;
     }
@@ -152,7 +152,7 @@
     }
 
     CMLogInfo(@"audit.service", @"recorded '%@' entry=%@ tenant=%@",
-              action, entry.entryId, tenantId);
+              action, [CMDebugLogger redact:entry.entryId], [CMDebugLogger redact:tenantId]);
 
     return entry;
 }
