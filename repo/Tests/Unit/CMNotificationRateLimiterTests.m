@@ -174,37 +174,44 @@
 
 #pragma mark - Different Template Keys Have Independent Limits
 
-- (void)testDifferentTemplateKeysHaveIndependentLimits {
+- (void)testGlobalCapAppliesToAllTemplateKeys {
+    // The rate limiter enforces a global 5-per-minute cap per tenant
+    // across ALL template keys (not per-template).
     CMPerBucketMockRepository *repo = [[CMPerBucketMockRepository alloc] init];
     CMNotificationRateLimiter *limiter = [[CMNotificationRateLimiter alloc] initWithRepository:repo];
     NSDate *now = [NSDate date];
 
-    // Template "assigned" is at the limit.
+    // Template "assigned" has 3 in this minute.
     NSString *assignedBucket = [CMNotificationRateLimiter bucketKeyForTenantId:@"t1"
                                                                   templateKey:@"assigned"
                                                                          date:now];
-    repo.bucketCounts[assignedBucket] = @(5);
+    repo.bucketCounts[assignedBucket] = @(3);
 
-    // Template "delivered" has 0 in this minute.
+    // Template "delivered" has 2 in this minute. Global total = 5 (at limit).
     NSString *deliveredBucket = [CMNotificationRateLimiter bucketKeyForTenantId:@"t1"
                                                                    templateKey:@"delivered"
                                                                           date:now];
-    repo.bucketCounts[deliveredBucket] = @(0);
+    repo.bucketCounts[deliveredBucket] = @(2);
 
     NSError *error = nil;
-    CMRateLimitDecision assignedDecision = [limiter checkLimitForTenantId:@"t1"
-                                                             templateKey:@"assigned"
-                                                                    date:now
-                                                                   error:&error];
-    XCTAssertEqual(assignedDecision, CMRateLimitDecisionCoalesce,
-        @"assigned template at limit should coalesce");
+    // Any new notification should coalesce since global count == 5.
+    CMRateLimitDecision decision = [limiter checkLimitForTenantId:@"t1"
+                                                      templateKey:@"pickup"
+                                                             date:now
+                                                            error:&error];
+    XCTAssertEqual(decision, CMRateLimitDecisionCoalesce,
+        @"Global cap of 5 should coalesce when total across templates reaches limit");
 
-    CMRateLimitDecision deliveredDecision = [limiter checkLimitForTenantId:@"t1"
-                                                              templateKey:@"delivered"
-                                                                     date:now
-                                                                    error:&error];
-    XCTAssertEqual(deliveredDecision, CMRateLimitDecisionAllow,
-        @"delivered template under limit should be allowed independently");
+    // Under-limit scenario: only 2 total.
+    repo.bucketCounts[assignedBucket] = @(1);
+    repo.bucketCounts[deliveredBucket] = @(1);
+
+    CMRateLimitDecision decision2 = [limiter checkLimitForTenantId:@"t1"
+                                                       templateKey:@"pickup"
+                                                              date:now
+                                                             error:&error];
+    XCTAssertEqual(decision2, CMRateLimitDecisionAllow,
+        @"Under global cap (2 total) should allow");
 }
 
 @end

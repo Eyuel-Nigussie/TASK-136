@@ -122,17 +122,6 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
                       [CMDebugLogger redact:item.notificationId]);
         }
 
-        // ---- Audit: durable audit entry for notification creation ----
-        [[CMAuditService shared] recordAction:@"notification.created"
-                                   targetType:@"NotificationItem"
-                                     targetId:item.notificationId
-                                   beforeJSON:nil
-                                    afterJSON:@{@"status": item.status ?: @"",
-                                                @"templateKey": item.templateKey ?: @"",
-                                                @"recipientUserId": recipientUserId ?: @""}
-                                       reason:@"Notification created"
-                                   completion:nil];
-
         // ---- Digest management (only when coalesced) ----
         CMNotificationItem *digestItem = nil;
         if (decision == CMRateLimitDecisionCoalesce) {
@@ -199,6 +188,17 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
 
         CMLogInfo(kTag, @"emit complete: resultId=%@ status=%@",
                   [CMDebugLogger redact:resultItem.notificationId], resultItem.status);
+
+        // ---- Durable audit entry for notification creation (after save) ----
+        [[CMAuditService shared] recordAction:@"notification.created"
+                                   targetType:@"NotificationItem"
+                                     targetId:item.notificationId
+                                   beforeJSON:nil
+                                    afterJSON:@{@"status": item.status ?: @"",
+                                                @"templateKey": item.templateKey ?: @"",
+                                                @"recipientUserId": recipientUserId ?: @""}
+                                       reason:@"Notification created"
+                                   completion:nil];
 
         // NOTE: System notification mirroring via UNUserNotificationCenter is
         // intentionally omitted. The spec requires an "in-app notification
