@@ -11,7 +11,7 @@
 #import <UIKit/UIKit.h>
 #import "CMLocationPrefill.h"
 
-@interface CMLocationPrefill ()
+@interface CMLocationPrefill () <CLLocationManagerDelegate>
 // Expose internals for testing.
 @property (nonatomic, strong) CLLocationManager *locationManager;
 @property (nonatomic, assign) BOOL didReceiveFix;
