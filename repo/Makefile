@@ -83,17 +83,20 @@ run: setup ## Build and launch on simulator
 	@echo "Installing on simulator..."
 	@# Exclude Index.noindex — Xcode's indexer stub has no Info.plist/bundle ID
 	@# and `simctl install` fails with "Missing bundle ID" if we pick it.
-	@APP=$$(find ~/Library/Developer/Xcode/DerivedData -name "CourierMatch.app" -path "*/Build/Products/Debug-iphonesimulator/*" -not -path "*Index.noindex*" 2>/dev/null | head -1) && \
-		if [ -n "$$APP" ] && [ -f "$$APP/Info.plist" ]; then \
-			xcrun simctl boot '$(SIMULATOR)' 2>/dev/null || true; \
-			xcrun simctl install '$(SIMULATOR)' "$$APP"; \
-			xcrun simctl launch '$(SIMULATOR)' com.eaglepoint.couriermatch; \
-			open -a Simulator; \
-			echo "App launched on $(SIMULATOR)."; \
-		else \
-			echo "ERROR: Could not find a valid .app bundle (looked under */Build/Products/Debug-iphonesimulator/, excluding Index.noindex, requiring Info.plist)."; \
-			exit 1; \
-		fi
+	@# Chain with && so failures surface instead of being masked by a
+	@# spurious "App launched" message at the end of the recipe.
+	@APP=$$(find ~/Library/Developer/Xcode/DerivedData -name "CourierMatch.app" -path "*/Build/Products/Debug-iphonesimulator/*" -not -path "*Index.noindex*" 2>/dev/null | head -1); \
+	if [ -z "$$APP" ] || [ ! -f "$$APP/Info.plist" ]; then \
+		echo "ERROR: Could not find a valid .app bundle (looked under */Build/Products/Debug-iphonesimulator/, excluding Index.noindex, requiring Info.plist)."; \
+		exit 1; \
+	fi; \
+	xcrun simctl boot '$(SIMULATOR)' 2>/dev/null || true; \
+	xcrun simctl terminate '$(SIMULATOR)' com.eaglepoint.couriermatch 2>/dev/null || true; \
+	xcrun simctl uninstall '$(SIMULATOR)' com.eaglepoint.couriermatch 2>/dev/null || true; \
+	xcrun simctl install '$(SIMULATOR)' "$$APP" && \
+	xcrun simctl launch '$(SIMULATOR)' com.eaglepoint.couriermatch && \
+	open -a Simulator && \
+	echo "App launched on $(SIMULATOR)."
 
 clean: ## Remove build artifacts and generated project
 	rm -rf build/ DerivedData/

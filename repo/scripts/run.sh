@@ -41,7 +41,17 @@ echo "  App bundle: $APP"
 # Boot simulator
 xcrun simctl boot "${SIMULATOR}" 2>/dev/null || true
 
-# Install and launch
+# Kill any running instance of the app first.
+#
+# Re-installing over a running app leaves the old process pointing at a
+# stale binary; simctl launch then fails with
+# "FBSOpenApplicationServiceErrorDomain, code=1 (SBMainWorkspace denied)".
+# Terminating + uninstalling guarantees a clean install/launch cycle.
+xcrun simctl terminate "${SIMULATOR}" "${BUNDLE_ID}" 2>/dev/null || true
+xcrun simctl uninstall "${SIMULATOR}" "${BUNDLE_ID}" 2>/dev/null || true
+
+# Install and launch. set -e at the top of this script means either failure
+# aborts — so the "launched" message below is only printed on real success.
 xcrun simctl install "${SIMULATOR}" "$APP"
 xcrun simctl launch "${SIMULATOR}" "$BUNDLE_ID"
 
