@@ -141,7 +141,7 @@ static NSString *const kTagHashing = @"attachment.hashing";
                                               message:@"Attachment hash mismatch — tamper suspected"]);
             }
         } else {
-            CMLogInfo(kTagHashing, @"validation passed for attachment %@", attachmentId);
+            CMLogInfo(kTagHashing, @"validation passed for attachment %@", [CMDebugLogger redact:attachmentId]);
             if (completion) {
                 completion(YES, nil);
             }

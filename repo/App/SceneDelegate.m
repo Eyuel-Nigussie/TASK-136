@@ -280,12 +280,12 @@ willConnectToSession:(UISceneSession *)session
         UIViewController *sidebar = [self buildSidebarViewController];
         [split setViewController:sidebar forColumn:UISplitViewControllerColumnPrimary];
 
-        // Supplementary = placeholder list
-        UIViewController *supplementary = [self buildPlaceholderListViewController];
+        // Supplementary = orders list (real content, not placeholder)
+        UIViewController *supplementary = [self buildOrderListViewController];
         [split setViewController:supplementary forColumn:UISplitViewControllerColumnSupplementary];
 
-        // Secondary = placeholder detail
-        UIViewController *detail = [self buildPlaceholderDetailViewController];
+        // Secondary = itinerary list (real content for initial context)
+        UIViewController *detail = [self buildItineraryDetailViewController];
         [split setViewController:detail forColumn:UISplitViewControllerColumnSecondary];
 
         // Compact fallback: the tab bar (via setViewController:forColumn:compact)
@@ -487,33 +487,18 @@ willConnectToSession:(UISceneSession *)session
     return nil;
 }
 
-- (UIViewController *)buildPlaceholderListViewController {
-    // Default supplementary column: show orders list
+- (UIViewController *)buildOrderListViewController {
     CMOrderListViewController *vc = [[CMOrderListViewController alloc] init];
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
     nav.navigationBar.prefersLargeTitles = YES;
     return nav;
 }
 
-- (UIViewController *)buildPlaceholderDetailViewController {
-    UIViewController *vc = [[UIViewController alloc] init];
-    vc.view.backgroundColor = [CMTheme cm_backgroundColor];
-    vc.title = @"Detail";
-
-    UILabel *label = [[UILabel alloc] init];
-    label.translatesAutoresizingMaskIntoConstraints = NO;
-    label.text = @"No Selection";
-    label.textAlignment = NSTextAlignmentCenter;
-    [CMTheme cm_configureLabel:label
-                     textStyle:UIFontTextStyleBody
-                         color:[CMTheme cm_secondaryLabelColor]];
-    [vc.view addSubview:label];
-    [NSLayoutConstraint activateConstraints:@[
-        [label.centerXAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.centerXAnchor],
-        [label.centerYAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.centerYAnchor],
-    ]];
-
-    return vc;
+- (UIViewController *)buildItineraryDetailViewController {
+    CMItineraryListViewController *vc = [[CMItineraryListViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.navigationBar.prefersLargeTitles = YES;
+    return nav;
 }
 
 #pragma mark - Logout

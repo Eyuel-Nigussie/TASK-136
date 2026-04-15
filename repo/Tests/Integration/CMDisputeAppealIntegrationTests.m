@@ -700,4 +700,54 @@
     XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
 }
 
+#pragma mark - Test: Appeal uphold/reject always persist afterScoreSnapshotJSON
+
+- (void)testAppealUpholdPersistsAfterScoreSnapshot {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    [self switchToUser:self.csUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard reason:@"Test" error:nil];
+    XCTAssertNotNil(appeal);
+
+    [self switchToUser:self.reviewerUser];
+    [appealService assignReviewer:self.reviewerUser.userId toAppeal:appeal error:nil];
+
+    NSError *decisionErr = nil;
+    BOOL decided = [appealService submitDecision:CMAppealDecisionUphold
+                                          appeal:appeal
+                                     afterScores:nil
+                                           notes:@"Upholding original score"
+                                           error:&decisionErr];
+    XCTAssertTrue(decided, @"Uphold decision should succeed: %@", decisionErr);
+    XCTAssertNotNil(appeal.afterScoreSnapshotJSON,
+                    @"afterScoreSnapshotJSON must be non-nil even for uphold decisions");
+    XCTAssertEqualObjects(appeal.afterScoreSnapshotJSON, appeal.beforeScoreSnapshotJSON,
+                          @"Uphold should copy before-snapshot as after-snapshot");
+}
+
+- (void)testAppealRejectPersistsAfterScoreSnapshot {
+    CMOrder *order = nil;
+    CMDeliveryScorecard *scorecard = [self createFinalizedScorecardWithOrder:&order];
+
+    [self switchToUser:self.csUser];
+    CMAppealService *appealService = [[CMAppealService alloc] initWithContext:self.testContext];
+    CMAppeal *appeal = [appealService openAppeal:nil scorecard:scorecard reason:@"Test" error:nil];
+    XCTAssertNotNil(appeal);
+
+    [self switchToUser:self.reviewerUser];
+    [appealService assignReviewer:self.reviewerUser.userId toAppeal:appeal error:nil];
+
+    NSError *decisionErr = nil;
+    BOOL decided = [appealService submitDecision:CMAppealDecisionReject
+                                          appeal:appeal
+                                     afterScores:nil
+                                           notes:@"Rejecting appeal"
+                                           error:&decisionErr];
+    XCTAssertTrue(decided, @"Reject decision should succeed: %@", decisionErr);
+    XCTAssertNotNil(appeal.afterScoreSnapshotJSON,
+                    @"afterScoreSnapshotJSON must be non-nil even for reject decisions");
+}
+
 @end

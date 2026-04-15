@@ -244,6 +244,14 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
 }
 
 - (void)capturePhotoTapped {
+    // Defense-in-depth: enforce permission even if invoked outside action-list path.
+    NSString *role = [CMTenantContext shared].currentRole;
+    CMPermissionMatrix *pm = [CMPermissionMatrix shared];
+    if (![pm hasPermission:@"attachments.upload_own" forRole:role] &&
+        ![pm hasPermission:@"attachments.upload_dispute" forRole:role]) {
+        [self showPermissionDenied]; return;
+    }
+
     CMCameraCaptureViewController *cameraVC = [[CMCameraCaptureViewController alloc] initWithOwnerType:@"Order"
                                                                                               ownerId:self.order.orderId];
     cameraVC.delegate = self;
@@ -251,6 +259,12 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
 }
 
 - (void)captureSignatureTapped {
+    // Defense-in-depth: enforce permission even if invoked outside action-list path.
+    NSString *role = [CMTenantContext shared].currentRole;
+    if (![[CMPermissionMatrix shared] hasPermission:@"attachments.upload_own" forRole:role]) {
+        [self showPermissionDenied]; return;
+    }
+
     CMSignatureCaptureViewController *sigVC = [[CMSignatureCaptureViewController alloc]
         initWithOrderId:self.order.orderId];
     sigVC.delegate = self;
@@ -279,6 +293,12 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
 }
 
 - (void)editNotesTapped {
+    // Defense-in-depth: enforce permission even if invoked outside action-list path.
+    NSString *role = [CMTenantContext shared].currentRole;
+    if (![[CMPermissionMatrix shared] hasPermission:@"orders.edit_notes" forRole:role]) {
+        [self showPermissionDenied]; return;
+    }
+
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Edit Notes"
                                                                   message:@"Update customer notes for this order."
                                                            preferredStyle:UIAlertControllerStyleAlert];
