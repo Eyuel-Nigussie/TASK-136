@@ -565,6 +565,7 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
         if ([pm hasPermission:@"disputes.open" forRole:role]) [actions addObject:@"open_dispute"];
         if ([pm hasPermission:@"attachments.upload_own" forRole:role] ||
             [pm hasPermission:@"attachments.upload_dispute" forRole:role]) [actions addObject:@"capture_photo"];
+        if ([pm hasPermission:@"attachments.upload_own" forRole:role]) [actions addObject:@"capture_signature"];
 
         if (indexPath.row < (NSInteger)actions.count) {
             NSString *action = actions[indexPath.row];
