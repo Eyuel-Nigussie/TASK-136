@@ -353,4 +353,51 @@
     XCTAssertTrue(explicitlyStale, @"Explicitly stale candidate should report as stale");
 }
 
+#pragma mark - Test: Stop-Aware Matching
+
+- (void)testMatchWithOnTheWayStopsProducesCandidates {
+    // Create itinerary with an on-the-way stop
+    CMItinerary *itinerary = [self insertTestItinerary:@"itin-stops-001"];
+    itinerary.originAddress = [self addressWithLat:40.7128 lng:-74.0060 zip:@"10001" city:@"New York"];
+    itinerary.destinationAddress = [self addressWithLat:40.7580 lng:-73.9855 zip:@"10036" city:@"New York"];
+    itinerary.vehicleType = CMVehicleTypeCar;
+    itinerary.vehicleCapacityVolumeL = 500.0;
+    itinerary.vehicleCapacityWeightKg = 200.0;
+
+    // Add an on-the-way stop between origin and destination
+    CMAddress *stop = [self addressWithLat:40.7350 lng:-73.9950 zip:@"10010" city:@"New York"];
+    itinerary.onTheWayStops = @[stop];
+
+    NSDate *now = [NSDate date];
+    itinerary.departureWindowStart = now;
+    itinerary.departureWindowEnd = [now dateByAddingTimeInterval:4 * 3600];
+
+    // Create a nearby order
+    CMOrder *order = [self insertTestOrder:@"ord-stops-001"];
+    order.pickupAddress = [self addressWithLat:40.7350 lng:-73.9960 zip:@"10010" city:@"New York"];
+    order.dropoffAddress = [self addressWithLat:40.7500 lng:-73.9880 zip:@"10018" city:@"New York"];
+    order.pickupWindowStart = now;
+    order.pickupWindowEnd = [now dateByAddingTimeInterval:3600];
+    order.dropoffWindowStart = [now dateByAddingTimeInterval:1800];
+    order.dropoffWindowEnd = [now dateByAddingTimeInterval:5400];
+    [self saveContext];
+
+    // Run match engine
+    XCTestExpectation *matchExp = [self expectationWithDescription:@"Stop-aware match"];
+    [[CMMatchEngine shared] recomputeCandidatesForItinerary:itinerary
+                                                 completion:^(NSError *error) {
+        if (error && error.code != 5005) {
+            XCTFail(@"Unexpected match error: %@", error);
+        }
+        [matchExp fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:10.0 handler:nil];
+
+    NSError *rankErr = nil;
+    NSArray<CMMatchCandidate *> *candidates =
+        [[CMMatchEngine shared] rankCandidatesForItinerary:@"itin-stops-001" error:&rankErr];
+    XCTAssertNotNil(candidates, @"Stop-aware matching should produce candidates: %@", rankErr);
+    XCTAssertGreaterThan(candidates.count, 0, @"Should have at least one candidate with stops");
+}
+
 @end

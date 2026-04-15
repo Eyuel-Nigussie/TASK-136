@@ -463,6 +463,7 @@ typedef struct {
     // Then compute the best insertion of pickup -> dropoff along that route.
     double directDistance = 0.0;
     double detourRoute = 0.0;
+    double routeDistToPickup = 0.0; // route-aware distance from origin to pickup
 
     if (onTheWayStops.count > 0) {
         // Compute base route through stops: origin -> stop1 -> ... -> stopN -> destination
@@ -490,6 +491,8 @@ typedef struct {
         wpLats[wpCount - 1] = destLat; wpLngs[wpCount - 1] = destLng;
 
         double bestTotal = DBL_MAX;
+        double bestDistToPickup = 0.0; // route distance from origin to pickup at best insertion
+        double cumulativeDist = 0.0;   // running distance along base route
         for (NSUInteger i = 0; i < wpCount - 1; i++) {
             // Replace segment wp[i]->wp[i+1] with wp[i]->pickup->dropoff->wp[i+1]
             double origSeg = CMGeoDistanceMiles(wpLats[i], wpLngs[i], wpLats[i+1], wpLngs[i+1]);
@@ -499,10 +502,15 @@ typedef struct {
             double totalWithDetour = baseRouteDist - origSeg + newSeg;
             if (totalWithDetour < bestTotal) {
                 bestTotal = totalWithDetour;
+                // Distance to pickup = route so far + wp[i]->pickup leg
+                bestDistToPickup = cumulativeDist
+                    + CMGeoDistanceMiles(wpLats[i], wpLngs[i], pickup.lat, pickup.lng);
             }
+            cumulativeDist += origSeg;
         }
         free(wpLats); free(wpLngs);
         detourRoute = bestTotal;
+        routeDistToPickup = bestDistToPickup;
     } else {
         // No stops: original path origin -> pickup -> dropoff -> destination
         directDistance = CMGeoDistanceMiles(originLat, originLng, destLat, destLng);
@@ -511,6 +519,7 @@ typedef struct {
             pickup.lat, pickup.lng,
             dropoff.lat, dropoff.lng,
             destLat, destLng);
+        routeDistToPickup = CMGeoDistanceMiles(originLat, originLng, pickup.lat, pickup.lng);
     }
 
     double rawDetourMiles = detourRoute - directDistance;
@@ -529,9 +538,10 @@ typedef struct {
     result.detourMiles = adjustedDetourMiles;
 
     // ── Q3: Time fit with ETA ──
+    // Use route-aware distance to pickup (through stops if any), not direct origin->pickup.
     BOOL isUrban = bothMetro;
     double travelMinutesToPickup = [CMVehicleSpeedTable travelMinutesForMiles:
-        CMGeoDistanceMiles(originLat, originLng, pickup.lat, pickup.lng) * multiplier
+        routeDistToPickup * multiplier
                                                                  vehicleType:vehicleType
                                                                      isUrban:isUrban];
 

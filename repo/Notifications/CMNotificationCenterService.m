@@ -9,6 +9,7 @@
 #import "CMNotificationTemplateRenderer.h"
 #import "CMNotificationRateLimiter.h"
 #import "CMWorkEntities.h"
+#import "CMAuditService.h"
 #import "CMTenantContext.h"
 #import "CMTenantRepository.h"
 #import "CMTenant.h"

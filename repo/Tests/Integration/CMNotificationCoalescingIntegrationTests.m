@@ -12,6 +12,7 @@
 #import "CMNotificationItem.h"
 #import "CMNotificationRateLimiter.h"
 #import "CMNotificationRepository.h"
+#import "CMAuditEntry.h"
 #import "CMTenantContext.h"
 #import "NSManagedObjectContext+CMHelpers.h"
 
@@ -357,6 +358,75 @@
         XCTAssertNil(refetched.ackedAt,
                      @"ackedAt should remain nil since cross-user ack was denied");
     }
+}
+
+#pragma mark - Test: Notification Audit Entries Are Durable
+
+- (void)testNotificationCreateWritesAuditEntry {
+    XCTestExpectation *emitExp = [self expectationWithDescription:@"Emit notification"];
+    __block NSString *notifId = nil;
+
+    CMNotificationCenterService *svc = [[CMNotificationCenterService alloc] init];
+    [svc emitNotificationForEvent:@"assigned"
+                          payload:@{@"orderId": @"audit-test-order"}
+                  recipientUserId:self.courierUser.userId
+                subjectEntityType:@"Order"
+                  subjectEntityId:@"audit-test-order"
+                       completion:^(CMNotificationItem *item, NSError *error) {
+        notifId = item.notificationId;
+        [emitExp fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+    XCTAssertNotNil(notifId);
+
+    // Allow async audit write to complete
+    XCTestExpectation *delay = [self expectationWithDescription:@"Audit write delay"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{ [delay fulfill]; });
+    [self waitForExpectationsWithTimeout:3.0 handler:nil];
+
+    // Verify audit entry exists for notification.created
+    NSFetchRequest *fetch = [NSFetchRequest fetchRequestWithEntityName:@"AuditEntry"];
+    fetch.predicate = [NSPredicate predicateWithFormat:
+                       @"action == %@ AND targetId == %@", @"notification.created", notifId];
+    NSArray *entries = [self.testContext executeFetchRequest:fetch error:nil];
+    XCTAssertGreaterThan(entries.count, 0,
+                         @"notification.created audit entry should exist for emitted notification");
+}
+
+- (void)testNotificationReadWritesAuditEntry {
+    // Emit a notification first
+    XCTestExpectation *emitExp = [self expectationWithDescription:@"Emit for read test"];
+    __block NSString *notifId = nil;
+    CMNotificationCenterService *svc = [[CMNotificationCenterService alloc] init];
+    [svc emitNotificationForEvent:@"delivered"
+                          payload:@{@"orderId": @"read-audit-order"}
+                  recipientUserId:self.courierUser.userId
+                subjectEntityType:@"Order"
+                  subjectEntityId:@"read-audit-order"
+                       completion:^(CMNotificationItem *item, NSError *error) {
+        notifId = item.notificationId;
+        [emitExp fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+
+    // Mark as read
+    NSError *readErr = nil;
+    [svc markRead:notifId error:&readErr];
+    XCTAssertNil(readErr);
+
+    // Allow async audit write
+    XCTestExpectation *delay = [self expectationWithDescription:@"Delay"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{ [delay fulfill]; });
+    [self waitForExpectationsWithTimeout:3.0 handler:nil];
+
+    NSFetchRequest *fetch = [NSFetchRequest fetchRequestWithEntityName:@"AuditEntry"];
+    fetch.predicate = [NSPredicate predicateWithFormat:
+                       @"action == %@ AND targetId == %@", @"notification.read", notifId];
+    NSArray *entries = [self.testContext executeFetchRequest:fetch error:nil];
+    XCTAssertGreaterThan(entries.count, 0,
+                         @"notification.read audit entry should exist after markRead");
 }
 
 @end
