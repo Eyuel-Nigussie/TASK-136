@@ -1,34 +1,25 @@
 # Audit Report 2 - Fix Check
 
-## Result
-- Status: **Pass**
-- Verified file: `.tmp/audit_report-2.md`
-- Note: The report content is present under `audit_report-2.md` (renamed from `-3`), and no regeneration was needed.
+## Scope Checked
+I reviewed the prior remark about **notification rate limiting fail-open behavior** from `.tmp/audit_report-2.md` and validated the current implementation and related tests.
 
-## What Was Checked
-1. File existence and readability
-- `.tmp/audit_report-2.md` exists and is readable.
+## Verdict
+- **Status: Fixed (for this remark)**
 
-2. Structure completeness
-- Contains all required top-level sections:
-  - `1. Verdict`
-  - `2. Scope and Static Verification Boundary`
-  - `3. Repository / Requirement Mapping Summary`
-  - `4. Section-by-section Review`
-  - `5. Issues / Suggestions (Severity-Rated)`
-  - `6. Security Review Summary`
-  - `7. Tests and Logging Review`
-  - `8. Test Coverage Assessment (Static Audit)`
-  - `9. Final Notes`
+## What I Verified
+1. **Service no longer fail-opens on limiter errors**
+- In `CMNotificationCenterService`, limiter errors are explicitly converted to `CMRateLimitDecisionCoalesce` (fail-closed) instead of allowing notification emission as active.
+- Evidence: `repo/Notifications/CMNotificationCenterService.m:118-123`
 
-3. Mandatory static-audit elements
-- Includes severity-rated issues with evidence.
-- Includes explicit security dimension conclusions.
-- Includes mandatory `8.x` coverage subsections and final coverage judgment.
+2. **Injected test limiter now actually affects background path**
+- The service instantiates the background limiter using `[[self.rateLimiter class] ...]`, so test subclasses (error injectors) are respected in background execution.
+- Evidence: `repo/Notifications/CMNotificationCenterService.m:93-96`
 
-## Minor Observation
-- `.tmp/audit_report-3.md` does not exist currently; this is consistent with your rename note and does not block acceptance of report `-2`.
+3. **Integration test added for the exact negative path**
+- Added `CMErroringRateLimiter` test helper that returns `Allow` plus an error.
+- Added `testRateLimiterRepoErrorForcesCoalesce`, asserting persisted notifications become `Coalesced` when limiter errors occur.
+- Evidence: `repo/Tests/Integration/CMNotificationCoalescingIntegrationTests.m:20-35`, `repo/Tests/Integration/CMNotificationCoalescingIntegrationTests.m:466-514`
 
-## Final
-- The requested check is complete.
-- Output written to: `.tmp/audit_report-2-fix_check.md`
+## Notes
+- This check is a **static code/test review**; I did not execute the test suite in this pass.
+- Other unrelated remarks from the original audit (biometric enrollment gating, tenant-object guard in account deletion, etc.) were not part of this specific fix verification and appear unchanged in current modified files.
