@@ -13,6 +13,7 @@
 #import "CMNotificationRateLimiter.h"
 #import "CMNotificationRepository.h"
 #import "CMAuditEntry.h"
+#import "CMUserAccount.h"
 #import "CMTenantContext.h"
 #import "NSManagedObjectContext+CMHelpers.h"
 
