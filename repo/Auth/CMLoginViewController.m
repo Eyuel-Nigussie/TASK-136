@@ -356,21 +356,26 @@ NSNotificationName const CMLoginDidSucceedNotification = @"CMLoginDidSucceedNoti
 - (void)biometricTapped:(UIButton *)sender {
     [self.view endEditing:YES];
 
-    // For biometric login we need to know which user to authenticate.
-    // Use the tenant context's last known userId if available,
-    // or require the username field to be filled.
-    NSString *userId = nil;
+    // Biometric login requires a previously authenticated account binding.
+    // Both userId and tenantId are stored from the last successful password login
+    // and are verified for consistency before proceeding.
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSString *userId = [defaults stringForKey:@"CMLastAuthenticatedUserId"];
+    NSString *lastTenantId = [defaults stringForKey:@"CMLastAuthenticatedTenantId"];
 
-    // Try to look up from fields — in a real flow the userId would be cached
-    // from a prior successful login. For now, if tenantId + username are filled
-    // we build a composite key; but the auth service actually needs the userId.
-    // The correct flow: user logs in once with password, biometric is enrolled,
-    // then on next launch they can use biometric. The userId is stored in
-    // NSUserDefaults for convenience.
-    userId = [[NSUserDefaults standardUserDefaults] stringForKey:@"CMLastAuthenticatedUserId"];
-
-    if (!userId || userId.length == 0) {
+    if (!userId || userId.length == 0 || !lastTenantId || lastTenantId.length == 0) {
         [self showError:@"Please sign in with your password first to enable biometric login"];
+        [CMHaptics warning];
+        return;
+    }
+
+    // If user filled in a tenantId field, verify it matches the stored binding.
+    NSString *enteredTenantId = [self.tenantIdField.text stringByTrimmingCharactersInSet:
+                                 [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (enteredTenantId.length > 0 && ![enteredTenantId isEqualToString:lastTenantId]) {
+        [self showError:[NSString stringWithFormat:
+                         @"Biometric login is bound to a different tenant. Please sign in with password for '%@'.",
+                         enteredTenantId]];
         [CMHaptics warning];
         return;
     }
@@ -408,10 +413,12 @@ NSNotificationName const CMLoginDidSucceedNotification = @"CMLoginDidSucceedNoti
             [self hideError];
             [self hideCaptcha];
             self.pendingCaptcha = nil;
-            // Persist userId for future biometric login
+            // Persist userId + tenantId for future biometric login binding
             if (result.user.userId) {
                 [[NSUserDefaults standardUserDefaults] setObject:result.user.userId
                                                          forKey:@"CMLastAuthenticatedUserId"];
+                [[NSUserDefaults standardUserDefaults] setObject:result.user.tenantId ?: @""
+                                                         forKey:@"CMLastAuthenticatedTenantId"];
             }
             // Offer biometric enrollment if available and not yet enrolled
             if ([CMBiometricAuth isAvailable] && !result.user.biometricEnabled) {

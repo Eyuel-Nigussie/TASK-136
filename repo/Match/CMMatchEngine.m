@@ -296,6 +296,7 @@ typedef struct {
                                 vehicleCapVolumeL:vehicleCapVolumeL
                                vehicleCapWeightKg:vehicleCapWeightKg
                                     departureStart:departureStart
+                                    onTheWayStops:itinerary.onTheWayStops
                                            weights:weights
                                           zipTable:zipTable];
 
@@ -444,6 +445,7 @@ typedef struct {
           vehicleCapVolumeL:(double)vehicleCapVolumeL
          vehicleCapWeightKg:(double)vehicleCapWeightKg
              departureStart:(NSDate *)departureStart
+              onTheWayStops:(NSArray<CMAddress *> *)onTheWayStops
                     weights:(CMMatchScoringWeights *)weights
                    zipTable:(CMZipMetroTable *)zipTable {
     CMScoreResult result;
@@ -456,14 +458,61 @@ typedef struct {
         return result;
     }
 
-    // ── Q2: Detour calculation ──
-    // greatCircle(origin -> pickup -> dropoff -> destination) - greatCircle(origin -> destination)
-    double directDistance = CMGeoDistanceMiles(originLat, originLng, destLat, destLng);
-    double detourRoute = CMGeoMultiLegDistanceMiles(
-        originLat, originLng,
-        pickup.lat, pickup.lng,
-        dropoff.lat, dropoff.lng,
-        destLat, destLng);
+    // ── Q2: Detour calculation incorporating on-the-way stops ──
+    // Build the base route: origin -> [stop1 -> ... -> stopN] -> destination
+    // Then compute the best insertion of pickup -> dropoff along that route.
+    double directDistance = 0.0;
+    double detourRoute = 0.0;
+
+    if (onTheWayStops.count > 0) {
+        // Compute base route through stops: origin -> stop1 -> ... -> stopN -> destination
+        double basePrevLat = originLat, basePrevLng = originLng;
+        double baseRouteDist = 0.0;
+        for (CMAddress *stop in onTheWayStops) {
+            baseRouteDist += CMGeoDistanceMiles(basePrevLat, basePrevLng, stop.lat, stop.lng);
+            basePrevLat = stop.lat;
+            basePrevLng = stop.lng;
+        }
+        baseRouteDist += CMGeoDistanceMiles(basePrevLat, basePrevLng, destLat, destLng);
+        directDistance = baseRouteDist;
+
+        // Find best insertion: try inserting pickup->dropoff between each consecutive
+        // pair of waypoints and pick the minimum-detour position.
+        // Build flat arrays of lat/lng for waypoints: origin, stops..., destination.
+        NSUInteger wpCount = 2 + onTheWayStops.count;
+        double *wpLats = calloc(wpCount, sizeof(double));
+        double *wpLngs = calloc(wpCount, sizeof(double));
+        wpLats[0] = originLat; wpLngs[0] = originLng;
+        for (NSUInteger si = 0; si < onTheWayStops.count; si++) {
+            wpLats[si + 1] = onTheWayStops[si].lat;
+            wpLngs[si + 1] = onTheWayStops[si].lng;
+        }
+        wpLats[wpCount - 1] = destLat; wpLngs[wpCount - 1] = destLng;
+
+        double bestTotal = DBL_MAX;
+        for (NSUInteger i = 0; i < wpCount - 1; i++) {
+            // Replace segment wp[i]->wp[i+1] with wp[i]->pickup->dropoff->wp[i+1]
+            double origSeg = CMGeoDistanceMiles(wpLats[i], wpLngs[i], wpLats[i+1], wpLngs[i+1]);
+            double newSeg = CMGeoDistanceMiles(wpLats[i], wpLngs[i], pickup.lat, pickup.lng)
+                          + CMGeoDistanceMiles(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng)
+                          + CMGeoDistanceMiles(dropoff.lat, dropoff.lng, wpLats[i+1], wpLngs[i+1]);
+            double totalWithDetour = baseRouteDist - origSeg + newSeg;
+            if (totalWithDetour < bestTotal) {
+                bestTotal = totalWithDetour;
+            }
+        }
+        free(wpLats); free(wpLngs);
+        detourRoute = bestTotal;
+    } else {
+        // No stops: original path origin -> pickup -> dropoff -> destination
+        directDistance = CMGeoDistanceMiles(originLat, originLng, destLat, destLng);
+        detourRoute = CMGeoMultiLegDistanceMiles(
+            originLat, originLng,
+            pickup.lat, pickup.lng,
+            dropoff.lat, dropoff.lng,
+            destLat, destLng);
+    }
+
     double rawDetourMiles = detourRoute - directDistance;
     if (rawDetourMiles < 0.0) rawDetourMiles = 0.0;
 

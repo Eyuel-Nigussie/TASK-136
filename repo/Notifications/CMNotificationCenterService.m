@@ -121,9 +121,16 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
                       [CMDebugLogger redact:item.notificationId]);
         }
 
-        // ---- Audit hook (Step 7 wiring) ----
-        CMLogInfo(kTag, @"audit.hook: notification.created id=%@ status=%@ templateKey=%@",
-                  [CMDebugLogger redact:item.notificationId], item.status, item.templateKey);
+        // ---- Audit: durable audit entry for notification creation ----
+        [[CMAuditService shared] recordAction:@"notification.created"
+                                   targetType:@"NotificationItem"
+                                     targetId:item.notificationId
+                                   beforeJSON:nil
+                                    afterJSON:@{@"status": item.status ?: @"",
+                                                @"templateKey": item.templateKey ?: @"",
+                                                @"recipientUserId": recipientUserId ?: @""}
+                                       reason:@"Notification created"
+                                   completion:nil];
 
         // ---- Digest management (only when coalesced) ----
         CMNotificationItem *digestItem = nil;
@@ -216,8 +223,14 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
     item.readAt    = now;
     item.updatedAt = now;
 
-    // Audit hook (Step 7 wiring).
-    CMLogInfo(kTag, @"audit.hook: notification.read id=%@", [CMDebugLogger redact:notificationId]);
+    // Durable audit entry for notification read.
+    [[CMAuditService shared] recordAction:@"notification.read"
+                               targetType:@"NotificationItem"
+                                 targetId:notificationId
+                               beforeJSON:@{@"readAt": @"nil"}
+                                afterJSON:@{@"readAt": [now description]}
+                                   reason:@"Notification marked as read"
+                               completion:nil];
 
     // If this is a digest, cascade readAt to all children.
     if ([item.templateKey isEqualToString:kDigestTemplateKey] && item.childIds.count > 0) {
@@ -251,11 +264,21 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
     // Also mark read if not already read.
     if (!item.readAt) {
         item.readAt = now;
-        CMLogInfo(kTag, @"audit.hook: notification.read id=%@ (implicit via ack)", [CMDebugLogger redact:notificationId]);
+        [[CMAuditService shared] recordAction:@"notification.read"
+                                   targetType:@"NotificationItem" targetId:notificationId
+                                   beforeJSON:@{@"readAt": @"nil"}
+                                    afterJSON:@{@"readAt": [now description]}
+                                       reason:@"Implicit read via acknowledgement" completion:nil];
     }
 
-    // Audit hook (Step 7 wiring).
-    CMLogInfo(kTag, @"audit.hook: notification.ack id=%@", [CMDebugLogger redact:notificationId]);
+    // Durable audit entry for notification acknowledgement.
+    [[CMAuditService shared] recordAction:@"notification.ack"
+                               targetType:@"NotificationItem"
+                                 targetId:notificationId
+                               beforeJSON:@{@"ackedAt": @"nil"}
+                                afterJSON:@{@"ackedAt": [now description]}
+                                   reason:@"Notification acknowledged"
+                               completion:nil];
 
     // If this is a digest, cascade ackedAt (and readAt) to all children.
     if ([item.templateKey isEqualToString:kDigestTemplateKey] && item.childIds.count > 0) {
@@ -368,9 +391,14 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
     CMLogInfo(kTag, @"created new digest id=%@ for tenant=%@, templateKey=%@",
               [CMDebugLogger redact:digest.notificationId], [CMDebugLogger redact:tenantId], templateKey);
 
-    // Audit hook (Step 7 wiring).
-    CMLogInfo(kTag, @"audit.hook: notification.created id=%@ status=active templateKey=digest",
-              [CMDebugLogger redact:digest.notificationId]);
+    // Durable audit entry for digest creation.
+    [[CMAuditService shared] recordAction:@"notification.created"
+                               targetType:@"NotificationItem"
+                                 targetId:digest.notificationId
+                               beforeJSON:nil
+                                afterJSON:@{@"status": @"active", @"templateKey": @"digest"}
+                                   reason:@"Digest notification created"
+                               completion:nil];
 
     return digest;
 }
@@ -378,31 +406,40 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
 #pragma mark - Cascade helpers
 
 - (void)cascadeReadAtToChildren:(NSArray *)childIds date:(NSDate *)date error:(NSError **)error {
-    CMLogInfo(kTag, @"cascading readAt to %lu children", (unsigned long)childIds.count);
     for (NSString *childId in childIds) {
         CMNotificationItem *child = [self findNotificationById:childId error:error];
         if (child && !child.readAt) {
             child.readAt    = date;
             child.updatedAt = date;
-            CMLogInfo(kTag, @"audit.hook: notification.read id=%@ (cascaded from digest)", [CMDebugLogger redact:childId]);
+            [[CMAuditService shared] recordAction:@"notification.read"
+                                       targetType:@"NotificationItem" targetId:childId
+                                       beforeJSON:@{@"readAt": @"nil"}
+                                        afterJSON:@{@"readAt": [date description]}
+                                           reason:@"Cascaded read from digest" completion:nil];
         }
     }
 }
 
 - (void)cascadeAckedAtToChildren:(NSArray *)childIds date:(NSDate *)date error:(NSError **)error {
-    CMLogInfo(kTag, @"cascading ackedAt to %lu children", (unsigned long)childIds.count);
     for (NSString *childId in childIds) {
         CMNotificationItem *child = [self findNotificationById:childId error:error];
         if (child) {
             if (!child.readAt) {
                 child.readAt = date;
-                CMLogInfo(kTag, @"audit.hook: notification.read id=%@ (cascaded from digest ack)",
-                          [CMDebugLogger redact:childId]);
+                [[CMAuditService shared] recordAction:@"notification.read"
+                                           targetType:@"NotificationItem" targetId:childId
+                                           beforeJSON:@{@"readAt": @"nil"}
+                                            afterJSON:@{@"readAt": [date description]}
+                                               reason:@"Cascaded read from digest ack" completion:nil];
             }
             if (!child.ackedAt) {
                 child.ackedAt   = date;
                 child.updatedAt = date;
-                CMLogInfo(kTag, @"audit.hook: notification.ack id=%@ (cascaded from digest)", [CMDebugLogger redact:childId]);
+                [[CMAuditService shared] recordAction:@"notification.ack"
+                                           targetType:@"NotificationItem" targetId:childId
+                                           beforeJSON:@{@"ackedAt": @"nil"}
+                                            afterJSON:@{@"ackedAt": [date description]}
+                                               reason:@"Cascaded ack from digest" completion:nil];
             }
         }
     }
