@@ -36,6 +36,13 @@
     return self.fakeCount;
 }
 
+- (NSUInteger)countInGlobalBucket:(NSString *)tenantPrefix
+                     minuteSuffix:(NSString *)minuteSuffix
+                            error:(NSError **)error {
+    // Return the same fakeCount for global bucket queries.
+    return self.fakeCount;
+}
+
 @end
 
 // ---------------------------------------------------------------------------
@@ -58,6 +65,19 @@
 
 - (NSUInteger)countInBucket:(NSString *)bucket error:(NSError **)error {
     return [self.bucketCounts[bucket] unsignedIntegerValue];
+}
+
+- (NSUInteger)countInGlobalBucket:(NSString *)tenantPrefix
+                     minuteSuffix:(NSString *)minuteSuffix
+                            error:(NSError **)error {
+    // Sum all buckets that match the global pattern (tenant prefix + minute suffix).
+    NSUInteger total = 0;
+    for (NSString *key in self.bucketCounts) {
+        if ([key hasPrefix:tenantPrefix] && [key hasSuffix:minuteSuffix]) {
+            total += [self.bucketCounts[key] unsignedIntegerValue];
+        }
+    }
+    return total;
 }
 
 @end

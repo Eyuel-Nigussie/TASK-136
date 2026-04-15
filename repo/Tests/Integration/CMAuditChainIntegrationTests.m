@@ -261,12 +261,9 @@
 #pragma mark - Test: Production Write Path Chain Integrity
 
 - (void)testChainIntegrityViaProductionAuditService {
-    // Write entries through the production CMAuditService (which uses
-    // CMCoreDataStack.shared — pointed at our in-memory test store in setUp).
+    // Write entries sequentially through the production CMAuditService.
+    // Each write must complete before the next starts to maintain chain order.
     XCTestExpectation *write1 = [self expectationWithDescription:@"Write entry 1"];
-    XCTestExpectation *write2 = [self expectationWithDescription:@"Write entry 2"];
-    XCTestExpectation *write3 = [self expectationWithDescription:@"Write entry 3"];
-
     [[CMAuditService shared] recordAction:@"prod.chain.1"
                                targetType:@"ChainTest" targetId:@"prod-1"
                                beforeJSON:nil afterJSON:@{@"step": @1}
@@ -275,7 +272,9 @@
         XCTAssertNotNil(e, @"Entry 1 should be written: %@", err);
         [write1 fulfill];
     }];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
 
+    XCTestExpectation *write2 = [self expectationWithDescription:@"Write entry 2"];
     [[CMAuditService shared] recordAction:@"prod.chain.2"
                                targetType:@"ChainTest" targetId:@"prod-2"
                                beforeJSON:@{@"step": @1} afterJSON:@{@"step": @2}
@@ -284,7 +283,9 @@
         XCTAssertNotNil(e, @"Entry 2 should be written: %@", err);
         [write2 fulfill];
     }];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
 
+    XCTestExpectation *write3 = [self expectationWithDescription:@"Write entry 3"];
     [[CMAuditService shared] recordAction:@"prod.chain.3"
                                targetType:@"ChainTest" targetId:@"prod-3"
                                beforeJSON:@{@"step": @2} afterJSON:@{@"step": @3}
@@ -293,8 +294,7 @@
         XCTAssertNotNil(e, @"Entry 3 should be written: %@", err);
         [write3 fulfill];
     }];
-
-    [self waitForExpectationsWithTimeout:10.0 handler:nil];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
 
     // Now verify the chain written by the production service.
     XCTestExpectation *verifyExp = [self expectationWithDescription:@"Verify production chain"];
@@ -305,7 +305,7 @@
                       brokenEntryId, error);
         [verifyExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:10.0 handler:nil];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
 #pragma mark - Helper: Write N Test Entries Synchronously

@@ -92,10 +92,12 @@
 
 - (void)testScopingPredicate_ContainsDeletedAtNil {
     [self.ctx setUserId:@"user-1" tenantId:@"tenant-42" role:@"courier"];
-    NSPredicate *p = [self.ctx scopingPredicate];
+    // scopingPredicateWithSoftDelete includes deletedAt filter;
+    // scopingPredicate is tenant-only (some entities lack deletedAt, e.g. AuditEntry).
+    NSPredicate *p = [self.ctx scopingPredicateWithSoftDelete];
     NSString *fmt = p.predicateFormat;
     XCTAssertTrue([fmt containsString:@"deletedAt"] && [fmt containsString:@"nil"],
-                  @"Scoping predicate should include 'deletedAt == nil', got: %@", fmt);
+                  @"Scoping predicate with soft-delete should include 'deletedAt == nil', got: %@", fmt);
 }
 
 - (void)testScopingPredicate_NilAfterClear {

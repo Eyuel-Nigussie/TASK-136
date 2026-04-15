@@ -168,16 +168,23 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
             }
         }
 
-        // ---- Write WorkNotificationExpiry sidecar record ----
+        // ---- Write WorkNotificationExpiry sidecar record (best-effort) ----
         // This gives the purge job an authoritative expiry input.
-        // Default retention: 30 days from creation.
+        // Non-fatal: sidecar entity may not be available in all store configs.
         static NSTimeInterval const kDefaultRetentionSeconds = 30.0 * 24.0 * 60.0 * 60.0;
-        CMWorkNotificationExpiry *expiry = [NSEntityDescription
-            insertNewObjectForEntityForName:@"WorkNotificationExpiry"
-                     inManagedObjectContext:bgCtx];
-        expiry.notificationId = item.notificationId;
-        expiry.tenantId = tenantId;
-        expiry.expiresAt = [now dateByAddingTimeInterval:kDefaultRetentionSeconds];
+        @try {
+            NSEntityDescription *expiryEntity = [NSEntityDescription entityForName:@"WorkNotificationExpiry"
+                                                            inManagedObjectContext:bgCtx];
+            if (expiryEntity) {
+                CMWorkNotificationExpiry *expiry = [[CMWorkNotificationExpiry alloc]
+                    initWithEntity:expiryEntity insertIntoManagedObjectContext:bgCtx];
+                expiry.notificationId = item.notificationId;
+                expiry.tenantId = tenantId;
+                expiry.expiresAt = [now dateByAddingTimeInterval:kDefaultRetentionSeconds];
+            }
+        } @catch (NSException *e) {
+            CMLogWarn(kTag, @"WorkNotificationExpiry insert skipped: %@", e.reason);
+        }
 
         // ---- Save ----
         BOOL saved = [bgCtx cm_saveWithError:&error];
