@@ -81,15 +81,17 @@ run: setup ## Build and launch on simulator
 		$(SIGN_FLAGS)
 	@echo ""
 	@echo "Installing on simulator..."
-	@APP=$$(find ~/Library/Developer/Xcode/DerivedData -name "CourierMatch.app" -path "*/Debug-iphonesimulator/*" 2>/dev/null | head -1) && \
-		if [ -n "$$APP" ]; then \
+	@# Exclude Index.noindex — Xcode's indexer stub has no Info.plist/bundle ID
+	@# and `simctl install` fails with "Missing bundle ID" if we pick it.
+	@APP=$$(find ~/Library/Developer/Xcode/DerivedData -name "CourierMatch.app" -path "*/Build/Products/Debug-iphonesimulator/*" -not -path "*Index.noindex*" 2>/dev/null | head -1) && \
+		if [ -n "$$APP" ] && [ -f "$$APP/Info.plist" ]; then \
 			xcrun simctl boot '$(SIMULATOR)' 2>/dev/null || true; \
 			xcrun simctl install '$(SIMULATOR)' "$$APP"; \
 			xcrun simctl launch '$(SIMULATOR)' com.eaglepoint.couriermatch; \
 			open -a Simulator; \
 			echo "App launched on $(SIMULATOR)."; \
 		else \
-			echo "ERROR: Could not find built .app bundle."; \
+			echo "ERROR: Could not find a valid .app bundle (looked under */Build/Products/Debug-iphonesimulator/, excluding Index.noindex, requiring Info.plist)."; \
 			exit 1; \
 		fi
 
