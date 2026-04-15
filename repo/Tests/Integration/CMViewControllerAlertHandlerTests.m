@@ -91,7 +91,9 @@
     [[CMSessionManager shared] openSessionForUser:self.adminUser];
 
     CMAdminDashboardViewController *vc = [[CMAdminDashboardViewController alloc] init];
+    XCTAssertNotNil(vc, @"AdminDashboardViewController must instantiate");
     [self hostVC:vc];
+    XCTAssertNotNil(vc.view, @"AdminDashboardViewController view must load");
 
     // Try invoking each action method that presents an alert, then fire handlers.
     NSArray *actionMethods = @[@"showRubricManagement", @"showAllowlistSettings",
@@ -139,7 +141,9 @@
     [self saveContext];
 
     CMOrderDetailViewController *vc = [[CMOrderDetailViewController alloc] initWithOrder:o];
+    XCTAssertNotNil(vc, @"OrderDetailViewController must instantiate with a valid order");
     [self hostVC:vc];
+    XCTAssertNotNil(vc.view, @"OrderDetailViewController view must load");
 
     NSArray *actionMethods = @[@"editNotesTapped", @"updateStatusTapped", @"assignTapped",
                                 @"openDisputeTapped", @"capturePhotoTapped",
@@ -153,7 +157,9 @@
 - (void)testItineraryForm_AlertHandlers {
     [self switchToUser:self.courierUser];
     CMItineraryFormViewController *vc = [[CMItineraryFormViewController alloc] initWithItinerary:nil];
+    XCTAssertNotNil(vc, @"ItineraryFormViewController must instantiate");
     [self hostVC:vc];
+    XCTAssertNotNil(vc.view, @"ItineraryFormViewController view must load");
 
     [self tryInvoke:@"saveTapped" on:vc];
     [self firePresentedAlertActions:vc];
@@ -189,7 +195,9 @@
     [self saveContext];
 
     CMScorecardViewController *vc = [[CMScorecardViewController alloc] initWithScorecard:sc];
+    XCTAssertNotNil(vc, @"ScorecardViewController must instantiate");
     [self hostVC:vc];
+    XCTAssertNotNil(vc.view, @"ScorecardViewController view must load");
 
     [self tryInvoke:@"finalizeTapped" on:vc];
     [self firePresentedAlertActions:vc];
@@ -213,7 +221,9 @@
     [self saveContext];
 
     CMAppealReviewViewController *vc = [[CMAppealReviewViewController alloc] initWithAppeal:a];
+    XCTAssertNotNil(vc, @"AppealReviewViewController must instantiate");
     [self hostVC:vc];
+    XCTAssertNotNil(vc.view, @"AppealReviewViewController view must load");
 
     NSArray *actions = @[@"assignToMeTapped", @"submitDecisionTapped",
                          @"upholdTapped", @"adjustTapped", @"rejectTapped",
@@ -232,7 +242,9 @@
     [self saveContext];
 
     CMDisputeIntakeViewController *vc = [[CMDisputeIntakeViewController alloc] initWithOrder:o];
+    XCTAssertNotNil(vc, @"DisputeIntakeViewController must instantiate with a valid order");
     [self hostVC:vc];
+    XCTAssertNotNil(vc.view, @"DisputeIntakeViewController view must load");
 
     [self tryInvoke:@"submitTapped" on:vc];
     [self firePresentedAlertActions:vc];

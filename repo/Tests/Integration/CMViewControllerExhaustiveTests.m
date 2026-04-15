@@ -120,13 +120,17 @@
     [self switchToUser:self.adminUser];
     [[CMSessionManager shared] openSessionForUser:self.adminUser];
     CMAdminDashboardViewController *vc = [[CMAdminDashboardViewController alloc] init];
+    XCTAssertNotNil(vc, @"AdminDashboardViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"AdminDashboardViewController view must survive exhaustive drive");
 }
 
 - (void)testAdminDashboardExhaustive_NonAdmin {
     [self switchToUser:self.courierUser];
     CMAdminDashboardViewController *vc = [[CMAdminDashboardViewController alloc] init];
+    XCTAssertNotNil(vc, @"AdminDashboardViewController must instantiate for non-admin");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"AdminDashboardViewController view must survive exhaustive drive");
 }
 
 - (void)testOrderListExhaustive_Courier {
@@ -134,14 +138,18 @@
     [[CMSessionManager shared] openSessionForUser:self.courierUser];
     [self seedOrderForCourier];
     CMOrderListViewController *vc = [[CMOrderListViewController alloc] init];
+    XCTAssertNotNil(vc, @"OrderListViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"OrderListViewController view must survive exhaustive drive");
 }
 
 - (void)testOrderListExhaustive_Dispatcher {
     [self switchToUser:self.dispatcherUser];
     [[CMSessionManager shared] openSessionForUser:self.dispatcherUser];
     CMOrderListViewController *vc = [[CMOrderListViewController alloc] init];
+    XCTAssertNotNil(vc, @"OrderListViewController must instantiate for dispatcher");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"OrderListViewController view must survive exhaustive drive");
 }
 
 - (void)testOrderDetailExhaustive {
@@ -149,53 +157,69 @@
     [[CMSessionManager shared] openSessionForUser:self.courierUser];
     CMOrder *o = [self seedOrderForCourier];
     CMOrderDetailViewController *vc = [[CMOrderDetailViewController alloc] initWithOrder:o];
+    XCTAssertNotNil(vc, @"OrderDetailViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"OrderDetailViewController view must survive exhaustive drive");
 }
 
 - (void)testItineraryListExhaustive {
     [self switchToUser:self.courierUser];
     [self seedItinerary];
     CMItineraryListViewController *vc = [[CMItineraryListViewController alloc] init];
+    XCTAssertNotNil(vc, @"ItineraryListViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"ItineraryListViewController view must survive exhaustive drive");
 }
 
 - (void)testItineraryFormExhaustive_New {
     [self switchToUser:self.courierUser];
     CMItineraryFormViewController *vc = [[CMItineraryFormViewController alloc] initWithItinerary:nil];
+    XCTAssertNotNil(vc, @"ItineraryFormViewController must instantiate for new itinerary");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"ItineraryFormViewController view must survive exhaustive drive");
 }
 
 - (void)testItineraryFormExhaustive_Edit {
     [self switchToUser:self.courierUser];
     CMItinerary *it = [self seedItinerary];
     CMItineraryFormViewController *vc = [[CMItineraryFormViewController alloc] initWithItinerary:it];
+    XCTAssertNotNil(vc, @"ItineraryFormViewController must instantiate for edit");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"ItineraryFormViewController view must survive exhaustive drive");
 }
 
 - (void)testItineraryDetailExhaustive {
     [self switchToUser:self.courierUser];
     CMItinerary *it = [self seedItinerary];
     CMItineraryDetailViewController *vc = [[CMItineraryDetailViewController alloc] initWithItinerary:it];
+    XCTAssertNotNil(vc, @"ItineraryDetailViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"ItineraryDetailViewController view must survive exhaustive drive");
 }
 
 - (void)testMatchListExhaustive {
     [self switchToUser:self.courierUser];
     CMItinerary *it = [self seedItinerary];
     CMMatchListViewController *vc = [[CMMatchListViewController alloc] initWithItinerary:it];
+    XCTAssertNotNil(vc, @"MatchListViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"MatchListViewController view must survive exhaustive drive");
 }
 
 - (void)testNotificationListExhaustive {
     [self switchToUser:self.courierUser];
     CMNotificationListViewController *vc = [[CMNotificationListViewController alloc] init];
+    XCTAssertNotNil(vc, @"NotificationListViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"NotificationListViewController view must survive exhaustive drive");
 }
 
 - (void)testScorecardListExhaustive {
     [self switchToUser:self.reviewerUser];
     CMScorecardListViewController *vc = [[CMScorecardListViewController alloc] init];
+    XCTAssertNotNil(vc, @"ScorecardListViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"ScorecardListViewController view must survive exhaustive drive");
 }
 
 - (void)testScorecardViewExhaustive {
@@ -217,7 +241,9 @@
     [self saveContext];
 
     CMScorecardViewController *vc = [[CMScorecardViewController alloc] initWithScorecard:sc];
+    XCTAssertNotNil(vc, @"ScorecardViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"ScorecardViewController view must survive exhaustive drive");
 }
 
 - (void)testAppealReviewExhaustive {
@@ -235,32 +261,42 @@
     a.version = 1;
     [self saveContext];
     CMAppealReviewViewController *vc = [[CMAppealReviewViewController alloc] initWithAppeal:a];
+    XCTAssertNotNil(vc, @"AppealReviewViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"AppealReviewViewController view must survive exhaustive drive");
 }
 
 - (void)testDisputeIntakeExhaustive_NoOrder {
     [self switchToUser:self.csUser];
     CMDisputeIntakeViewController *vc = [[CMDisputeIntakeViewController alloc] initWithOrder:nil];
+    XCTAssertNotNil(vc, @"DisputeIntakeViewController must instantiate with nil order");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"DisputeIntakeViewController view must survive exhaustive drive");
 }
 
 - (void)testDisputeIntakeExhaustive_WithOrder {
     [self switchToUser:self.csUser];
     CMOrder *o = [self seedOrderForCourier];
     CMDisputeIntakeViewController *vc = [[CMDisputeIntakeViewController alloc] initWithOrder:o];
+    XCTAssertNotNil(vc, @"DisputeIntakeViewController must instantiate with order");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"DisputeIntakeViewController view must survive exhaustive drive");
 }
 
 - (void)testLoginExhaustive {
     [[CMTenantContext shared] clear];
     CMLoginViewController *vc = [[CMLoginViewController alloc] init];
+    XCTAssertNotNil(vc, @"LoginViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"LoginViewController view must survive exhaustive drive");
 }
 
 - (void)testSignupExhaustive {
     [[CMTenantContext shared] clear];
     CMSignupViewController *vc = [[CMSignupViewController alloc] init];
+    XCTAssertNotNil(vc, @"SignupViewController must instantiate");
     [self driveVC:vc];
+    XCTAssertNotNil(vc.view, @"SignupViewController view must survive exhaustive drive");
 }
 
 @end

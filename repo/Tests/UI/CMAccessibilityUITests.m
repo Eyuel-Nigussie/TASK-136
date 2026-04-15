@@ -160,8 +160,10 @@
         }
     }
 
-    // Even if we can't navigate to orders, verify the test structure is sound
-    XCTAssertTrue(YES, @"Order list accessibility test completed (navigation-dependent)");
+    // Even if we can't navigate to orders, verify the app is still running and the
+    // login screen remains accessible — a baseline requirement for all UI paths.
+    XCTAssertTrue(self.app.state == XCUIApplicationStateRunningForeground,
+                  @"App must remain in foreground throughout order list accessibility test");
 }
 
 #pragma mark - Test: All Text Fields Are Accessible

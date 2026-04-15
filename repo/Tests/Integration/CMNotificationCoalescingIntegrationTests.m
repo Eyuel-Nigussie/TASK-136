@@ -17,6 +17,23 @@
 #import "CMTenantContext.h"
 #import "NSManagedObjectContext+CMHelpers.h"
 
+// Test helper: rate-limiter that always injects a repo-level error.
+// Verifies the service's fail-closed behavior (error → coalesce, not allow).
+@interface CMErroringRateLimiter : CMNotificationRateLimiter
+@end
+@implementation CMErroringRateLimiter
+- (CMRateLimitDecision)checkLimitForTenantId:(NSString *)tenantId
+                                 templateKey:(NSString *)templateKey
+                                        date:(NSDate *)date
+                                       error:(NSError **)error {
+    if (error) {
+        *error = [NSError errorWithDomain:@"CMTestErrorDomain" code:9999
+                                userInfo:@{NSLocalizedDescriptionKey: @"Injected repo error"}];
+    }
+    return CMRateLimitDecisionAllow; // service must override to Coalesce on error
+}
+@end
+
 @interface CMNotificationCoalescingIntegrationTests : CMIntegrationTestCase
 @end
 
@@ -442,6 +459,58 @@
     // Audit entry should exist after markRead, but the bg-context save may not
     // have merged yet. The test verifies the call path runs without crashing.
     XCTAssertGreaterThanOrEqual(entries.count, 0);
+}
+
+#pragma mark - Negative: Rate Limiter Repo Error Forces Coalesce (Fail-Closed)
+
+- (void)testRateLimiterRepoErrorForcesCoalesce {
+    // Inject a broken rate limiter that always errors.
+    // The service must treat the error as fail-closed: override Allow → Coalesce.
+    CMNotificationRepository *repo =
+        [[CMNotificationRepository alloc] initWithContext:self.testContext];
+    CMErroringRateLimiter *brokenLimiter =
+        [[CMErroringRateLimiter alloc] initWithRepository:repo];
+
+    CMNotificationCenterService *service =
+        [[CMNotificationCenterService alloc] initWithRepository:repo
+                                                       renderer:nil
+                                                    rateLimiter:brokenLimiter];
+
+    XCTestExpectation *exp = [self expectationWithDescription:@"fail-closed emit"];
+    __block CMNotificationItem *resultItem = nil;
+    [service emitNotificationForEvent:@"delivered"
+                              payload:@{@"orderId": @"fail-closed-order"}
+                      recipientUserId:self.courierUser.userId
+                    subjectEntityType:@"Order"
+                      subjectEntityId:@"fail-closed-order"
+                           completion:^(CMNotificationItem *item, NSError *error) {
+        resultItem = item;
+        [exp fulfill];
+    }];
+    [self waitForExpectationsWithTimeout:10.0 handler:nil];
+
+    // The notification must have been persisted — completion fired with non-nil item.
+    // (If the bg save had failed, callCompletion would have been called with nil.)
+    XCTAssertNotNil(resultItem, @"Notification must be persisted (not dropped) on limiter error");
+
+    // Verify the coalesced status by opening a fresh scratch context on the same
+    // persistent store coordinator so we avoid any view-context merge-timing issues.
+    NSManagedObjectContext *verifyCtx =
+        [[NSManagedObjectContext alloc] initWithConcurrencyType:NSMainQueueConcurrencyType];
+    verifyCtx.persistentStoreCoordinator =
+        self.testContainer.persistentStoreCoordinator;
+
+    NSFetchRequest *fetch = [NSFetchRequest fetchRequestWithEntityName:@"NotificationItem"];
+    fetch.predicate = [NSPredicate predicateWithFormat:
+        @"recipientUserId == %@ AND templateKey != %@",
+        self.courierUserId, @"digest"];
+    NSArray *items = [verifyCtx executeFetchRequest:fetch error:nil];
+    XCTAssertGreaterThan(items.count, 0,
+                         @"At least one individual notification must be persisted");
+    NSArray *coalesced = [items filteredArrayUsingPredicate:
+        [NSPredicate predicateWithFormat:@"status == %@", CMNotificationStatusCoalesced]];
+    XCTAssertGreaterThan(coalesced.count, 0,
+                         @"At least one notification must be coalesced when limiter errors (fail-closed)");
 }
 
 @end

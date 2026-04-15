@@ -84,7 +84,9 @@
 
 - (void)testAdminDashboardActions {
     CMAdminDashboardViewController *vc = [[CMAdminDashboardViewController alloc] init];
+    XCTAssertNotNil(vc, @"AdminDashboardViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"AdminDashboardViewController view must load");
     UITableView *tv = [self findTableView:vc.view];
     [self exerciseTableDataSource:tv on:vc];
 
@@ -109,7 +111,9 @@
     [self saveContext];
 
     CMOrderListViewController *vc = [[CMOrderListViewController alloc] init];
+    XCTAssertNotNil(vc, @"OrderListViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"OrderListViewController view must load");
     [vc viewWillAppear:NO];
     UITableView *tv = [self findTableView:vc.view];
     [self exerciseTableDataSource:tv on:vc];
@@ -131,7 +135,9 @@
     [self saveContext];
 
     CMOrderDetailViewController *vc = [[CMOrderDetailViewController alloc] initWithOrder:order];
+    XCTAssertNotNil(vc, @"OrderDetailViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"OrderDetailViewController view must load");
     UITableView *tv = [self findTableView:vc.view];
     [self exerciseTableDataSource:tv on:vc];
 
@@ -148,7 +154,9 @@
     [[CMSessionManager shared] openSessionForUser:self.courierUser];
 
     CMItineraryListViewController *vc = [[CMItineraryListViewController alloc] init];
+    XCTAssertNotNil(vc, @"ItineraryListViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"ItineraryListViewController view must load");
     [vc viewWillAppear:NO];
     UITableView *tv = [self findTableView:vc.view];
     [self exerciseTableDataSource:tv on:vc];
@@ -162,7 +170,9 @@
     [self switchToUser:self.courierUser];
     CMItineraryFormViewController *vc = [[CMItineraryFormViewController alloc]
         initWithItinerary:nil];
+    XCTAssertNotNil(vc, @"ItineraryFormViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"ItineraryFormViewController view must load");
 
     [self tryInvoke:@"saveTapped" on:vc];
     [self tryInvoke:@"cancelTapped" on:vc];
@@ -173,7 +183,9 @@
 - (void)testNotificationListActions {
     [self switchToUser:self.dispatcherUser];
     CMNotificationListViewController *vc = [[CMNotificationListViewController alloc] init];
+    XCTAssertNotNil(vc, @"NotificationListViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"NotificationListViewController view must load");
     [vc viewWillAppear:NO];
     UITableView *tv = [self findTableView:vc.view];
     [self exerciseTableDataSource:tv on:vc];
@@ -185,7 +197,9 @@
 - (void)testScorecardListActions {
     [self switchToUser:self.reviewerUser];
     CMScorecardListViewController *vc = [[CMScorecardListViewController alloc] init];
+    XCTAssertNotNil(vc, @"ScorecardListViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"ScorecardListViewController view must load");
     [vc viewWillAppear:NO];
     UITableView *tv = [self findTableView:vc.view];
     [self exerciseTableDataSource:tv on:vc];
@@ -194,7 +208,9 @@
 - (void)testLoginActions {
     [[CMTenantContext shared] clear]; // login VC runs unauthenticated
     CMLoginViewController *vc = [[CMLoginViewController alloc] init];
+    XCTAssertNotNil(vc, @"LoginViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"LoginViewController view must load");
     [self tryInvoke:@"loginTapped:" on:vc];
     [self tryInvoke:@"signupTapped:" on:vc];
     [self tryInvoke:@"biometricTapped:" on:vc];
@@ -203,7 +219,9 @@
 - (void)testSignupActions {
     [[CMTenantContext shared] clear];
     CMSignupViewController *vc = [[CMSignupViewController alloc] init];
+    XCTAssertNotNil(vc, @"SignupViewController must instantiate");
     [vc loadViewIfNeeded];
+    XCTAssertNotNil(vc.view, @"SignupViewController view must load");
     [self tryInvoke:@"signupTapped:" on:vc];
     [self tryInvoke:@"cancelTapped:" on:vc];
 }

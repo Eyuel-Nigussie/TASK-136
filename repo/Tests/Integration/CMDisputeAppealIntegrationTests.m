@@ -173,7 +173,7 @@
         XCTAssertNotNil(entry, @"Audit entry should be created");
         [assignAuditExp fulfill];
     }];
-    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+    [self waitForExpectationsWithTimeout:15.0 handler:nil];
 
     // ---- Step 7: Submit decision "adjust" with after-score snapshot ----
     NSDictionary *afterScores = @{

@@ -35,7 +35,7 @@ test: setup ## Run all tests (unit + integration)
 		-destination '$(DESTINATION)' \
 		-only-testing:CourierMatchTests \
 		$(SIGN_FLAGS) \
-		| grep -E '(Test Suite|Test Case.*failed|Executed|BUILD)' | tail -40
+		| grep -E '(Test Suite|Test Case.*failed|Executed|BUILD)' | tail -200
 
 test-unit: setup ## Run unit tests only
 	xcodebuild test \

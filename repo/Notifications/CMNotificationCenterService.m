@@ -90,8 +90,10 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
         // ---- Repositories scoped to background context ----
         CMNotificationRepository *bgRepo =
             [[CMNotificationRepository alloc] initWithContext:bgCtx];
+        // Use the injected limiter's class so test subclasses (e.g. error injectors)
+        // are respected while still binding the limiter to the bg context's repo.
         CMNotificationRateLimiter *bgLimiter =
-            [[CMNotificationRateLimiter alloc] initWithRepository:bgRepo];
+            [[[self.rateLimiter class] alloc] initWithRepository:bgRepo];
 
         // ---- Resolve tenant config for template overrides ----
         NSDictionary *tenantConfigJSON = [self tenantConfigJSONForTenantId:explicitTenantId

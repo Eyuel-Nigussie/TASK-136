@@ -90,4 +90,15 @@
     XCTAssertEqualObjects(decData, origData);
 }
 
+- (void)testTransformedValueClassIsNSData {
+    Class cls = [CMEncryptedValueTransformer transformedValueClass];
+    XCTAssertEqualObjects(cls, [NSData class],
+                          @"Encrypted output class should be NSData");
+}
+
+- (void)testAllowsReverseTransformationIsYES {
+    BOOL allows = [CMEncryptedValueTransformer allowsReverseTransformation];
+    XCTAssertTrue(allows, @"Transformer must support reverse transformation for decryption");
+}
+
 @end

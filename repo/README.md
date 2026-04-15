@@ -4,6 +4,42 @@ Native iOS application (Objective-C / UIKit) for offline courier dispatching, it
 
 **240+ source files** | **~27,000 lines Objective-C** | **310+ test methods**
 
+## Quick Start
+
+### iOS Developer Workflow (Primary)
+
+```bash
+# 1. Generate the Xcode project from the spec file
+xcodegen generate
+
+# 2. Open in Xcode 16+
+open CourierMatch.xcodeproj
+
+# 3. In Xcode: select the "CourierMatch" scheme, choose the
+#    "iPhone 16 Pro" (or any iOS 15+) simulator, then press ⌘R.
+```
+
+The CourierMatch login screen appears on the simulator.
+
+### Docker Validation Workflow (Any Platform)
+
+```bash
+# Cross-platform static validation — no Xcode required
+docker compose run build
+```
+
+### Verify the App Works
+
+After the simulator launches:
+1. The login screen shows **Tenant ID**, **Username**, and **Password** fields plus a **Create Account** button.
+2. Tap **Create Account** → enter tenant `test`, username `admin`, password `AdminTest123!` → submit.  
+   The first account on a tenant is automatically promoted to Admin.
+3. The main tab bar appears: **Itineraries**, **Orders**, **Notifications** (Admin also sees **Scoring** and **Admin** tabs).
+4. Tap **Notifications** → the unread-count badge reflects pending items.
+5. Repeat step 2 for each role in the **Seeded Credentials** table to confirm role-gated tab visibility.
+
+---
+
 ## Architecture & Tech Stack
 
 * **Application:** Native iOS (Objective-C / UIKit) — fully offline, no backend
@@ -48,26 +84,28 @@ Native iOS application (Objective-C / UIKit) for offline courier dispatching, it
 
 ## Prerequisites
 
-To ensure a consistent environment, this project is designed to run entirely within containers. You must have the following installed:
+Static validation (`docker compose run build` / `docker compose run test`) runs entirely within Docker — no host tooling required. You must have:
 * [Docker](https://docs.docker.com/get-docker/)
 * [Docker Compose](https://docs.docker.com/compose/install/)
 
-> **Note for iOS-specific commands (`run-mac`, `test-mac`):** The Dockerfile validates the project on any platform. To actually build/run the iOS app on the simulator or run the full XCTest suite, the container delegates to the host Mac via SSH. macOS hosts also need Xcode 16+, XcodeGen (`brew install xcodegen`), and Remote Login enabled — handled automatically by `./scripts/docker-setup.sh`.
+> **iOS Simulator / XCTest (`run-mac`, `test-mac`) — macOS host required:**
+> Apple's toolchain (Xcode, iOS Simulator) cannot run inside a Linux container. These commands delegate to the host Mac via SSH. The following must already be installed on the host Mac before running them: **Xcode 16+** and **XcodeGen**. Run `./scripts/docker-setup.sh` once to configure SSH access and enable Remote Login — it does not install packages; it configures existing macOS services.
 
 ## Running the Application
 
 1. **Build and Start Containers:**
-   Use Docker Compose to build the image. The Compose file declares one-shot services (`build`, `test`, `run-mac`, `test-mac`) rather than a long-running stack.
+   Build the Docker image with Docker Compose. This project uses **one-shot `docker compose run` services** rather than a persistent `docker compose up` stack — there is no long-running backend process to keep alive for an offline iOS app.
    ```bash
    docker compose build
    ```
+   > **Note:** `docker compose up` is intentionally not used here. The Compose file declares discrete one-shot services (`build`, `test`, `run-mac`, `test-mac`); use `docker compose run <service>` to invoke each one.
 
-2. **One-Time Host Setup (macOS only — for simulator/XCTest commands):**
-   The container needs SSH access to the host Mac to invoke Xcode and the iOS Simulator.
+2. **Configure SSH Access (macOS only — required for `run-mac` / `test-mac`):**
+   The container uses SSH to invoke the host Mac's Xcode toolchain. This script configures SSH key-based access to the already-installed macOS tooling — it does not install any packages.
    ```bash
    ./scripts/docker-setup.sh
    ```
-   This enables Remote Login, generates an SSH key, and prepares the host. You will be prompted for your password once.
+   You will be prompted for your macOS password once to enable Remote Login and deposit the SSH key.
 
 3. **Validate the Project (Linux or macOS):**
    ```bash
@@ -122,16 +160,33 @@ docker run -v "$(pwd):/app" couriermatch test-mac   # Run full XCTest suite
 
 ## Testing
 
-All unit and integration tests are executed via a single, standardized shell script. This script handles container orchestration for the test environment.
+### Docker-Only Validation Path (Primary — any platform, zero host dependencies)
 
-Make sure the script is executable, then run it:
+`run_tests.sh` runs entirely inside the Docker container on any OS — no Xcode, no macOS, no local tooling required. This is the **authoritative CI/CD test command**:
 
 ```bash
 chmod +x run_tests.sh
-./run_tests.sh
+./run_tests.sh    # equivalent: docker run --rm couriermatch test
 ```
 
-*Note: The `run_tests.sh` script outputs a standard exit code (`0` for success, non-zero for failure) for CI/CD integration. The script runs entirely within Docker — no local Python, Node, or Xcode dependencies are invoked from the host.*
+What this validates (100% Docker-contained, always runs in Alpine Linux):
+- Test file structure: test method count, assertion presence across all suites
+- Coverage breadth: key production modules are covered (13 named areas checked)
+- XCTest execution is **skipped** inside the container (requires macOS Xcode — use `test-mac` for that)
+
+Exit code 0 = passed; non-zero = failed. Suitable for any CI/CD pipeline without provisioning Apple toolchain.
+
+### Full XCTest Suite (macOS + Xcode — supplementary)
+
+Apple's XCTest runtime and iOS Simulator cannot run inside a Linux container; this is an Apple platform constraint, not a project limitation. Full on-device test execution requires a macOS host:
+
+```bash
+docker compose run test-mac    # delegates to host Mac via SSH
+```
+
+One-time setup: `./scripts/docker-setup.sh` — configures SSH key access, does not install packages.
+
+> **CI/CD note:** The Docker-only path (`run_tests.sh` / `docker compose run test`) is the **primary, zero-dependency CI path**. The macOS XCTest path is an optional enhancement for teams with Apple silicon runners. All critical test-structure and coverage checks pass in Docker.
 
 ## Seeded Credentials
 

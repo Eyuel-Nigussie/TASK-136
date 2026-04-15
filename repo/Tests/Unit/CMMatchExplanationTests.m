@@ -88,4 +88,60 @@
         @"Zero vehicle delta should still be included, got: %@", summary);
 }
 
+#pragma mark - timeFitExplanationWithETA
+
+- (void)testTimeFitExplanation_WithValidDates {
+    NSDate *eta = [NSDate dateWithTimeIntervalSince1970:1704067200.0]; // 2024-01-01 00:00 UTC
+    NSDate *start = [NSDate dateWithTimeIntervalSince1970:1704063600.0]; // -1h
+    NSDate *end = [NSDate dateWithTimeIntervalSince1970:1704070800.0];   // +1h
+
+    NSString *result = [CMMatchExplanation timeFitExplanationWithETA:eta
+                                                         windowStart:start
+                                                           windowEnd:end];
+    XCTAssertNotNil(result);
+    XCTAssertTrue([result containsString:@"window"],
+                  @"Time fit explanation should mention the window");
+}
+
+- (void)testTimeFitExplanation_WithNilETA {
+    NSDate *start = [NSDate date];
+    NSDate *end = [NSDate dateWithTimeIntervalSinceNow:3600];
+    NSString *result = [CMMatchExplanation timeFitExplanationWithETA:nil
+                                                         windowStart:start
+                                                           windowEnd:end];
+    XCTAssertEqualObjects(result, @"time fit data unavailable");
+}
+
+- (void)testTimeFitExplanation_WithNilWindowStart {
+    NSDate *eta = [NSDate date];
+    NSDate *end = [NSDate dateWithTimeIntervalSinceNow:3600];
+    NSString *result = [CMMatchExplanation timeFitExplanationWithETA:eta
+                                                         windowStart:nil
+                                                           windowEnd:end];
+    XCTAssertEqualObjects(result, @"time fit data unavailable");
+}
+
+- (void)testTimeFitExplanation_WithNilWindowEnd {
+    NSDate *eta = [NSDate date];
+    NSDate *start = [NSDate date];
+    NSString *result = [CMMatchExplanation timeFitExplanationWithETA:eta
+                                                         windowStart:start
+                                                           windowEnd:nil];
+    XCTAssertEqualObjects(result, @"time fit data unavailable");
+}
+
+#pragma mark - detourExplanationWithMiles
+
+- (void)testDetourExplanation_PositiveMiles {
+    NSString *result = [CMMatchExplanation detourExplanationWithMiles:5.3];
+    XCTAssertNotNil(result);
+    XCTAssertTrue([result containsString:@"5.3"], @"Should contain formatted miles");
+    XCTAssertTrue([result containsString:@"mi detour"], @"Should mention detour");
+}
+
+- (void)testDetourExplanation_ZeroMiles {
+    NSString *result = [CMMatchExplanation detourExplanationWithMiles:0.0];
+    XCTAssertTrue([result containsString:@"0.0"], @"Zero miles should still be formatted");
+}
+
 @end

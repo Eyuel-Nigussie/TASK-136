@@ -79,16 +79,16 @@
     // should be hidden. We verify the element exists in the hierarchy but check
     // its state.
     XCUIElement *biometricButton = self.app.buttons[@"Sign In with Biometrics"];
-    // In simulator: biometrics are not available, so the button is hidden.
-    // We test that when the button IS in the UI, it is accessible.
-    // On a real device this would be visible; in the simulator it won't be.
-    if (biometricButton.exists) {
-        XCTAssertTrue(biometricButton.isHittable || !biometricButton.isHittable,
-                      @"Biometric button exists in the view hierarchy");
+    if (biometricButton.exists && biometricButton.isHittable) {
+        // On a real device with enrolled biometrics, verify the button is properly labeled.
+        XCTAssertGreaterThan(biometricButton.label.length, 0,
+                             @"Biometric button must have an accessibility label when visible");
+    } else {
+        // In the simulator or without enrolled biometrics, the button is hidden.
+        // Verify the login screen remains usable with the password-only Sign In path.
+        XCTAssertTrue(loginButton.exists,
+                      @"Sign In button must remain present when biometric button is absent");
     }
-    // This test verifies the button element is present (or absent) based on
-    // device capability, which is the expected behavior.
-    XCTAssertTrue(YES, @"Biometric button visibility test passed (device-dependent)");
 }
 
 #pragma mark - Test: CAPTCHA Section Hidden Initially

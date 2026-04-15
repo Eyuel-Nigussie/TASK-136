@@ -189,4 +189,61 @@
         @"Error code should be CMErrorCodeAttachmentMagicMismatch for unrecognized bytes");
 }
 
+#pragma mark - Custom Max Size
+
+- (void)testSetCustomMaxSizeBytes {
+    // Override max size to 1 KB, verify a 2 KB file is rejected.
+    [self.allowlist setMaxSizeBytes:1024];
+    NSData *data = [self jpegDataWithSize:2048];
+    NSError *error = nil;
+    BOOL valid = [self.allowlist validateData:data declaredMIME:@"image/jpeg" error:&error];
+    XCTAssertFalse(valid, @"2 KB file should fail with a 1 KB limit");
+    XCTAssertEqual(error.code, CMErrorCodeAttachmentTooLarge);
+}
+
+- (void)testSetCustomMaxSizeBytes_WithinLimit {
+    [self.allowlist setMaxSizeBytes:4096];
+    NSData *data = [self pngDataWithSize:1024];
+    NSError *error = nil;
+    BOOL valid = [self.allowlist validateData:data declaredMIME:@"image/png" error:&error];
+    XCTAssertTrue(valid, @"1 KB file should pass with 4 KB limit");
+}
+
+#pragma mark - Custom Allowed MIME Types
+
+- (void)testSetAllowedMIMETypes_OnlyPDF {
+    // Restrict to PDF only (setAllowedMIMETypes: expects NSSet).
+    [self.allowlist setAllowedMIMETypes:[NSSet setWithObject:@"application/pdf"]];
+
+    // PDF should pass.
+    NSData *pdfData = [self pdfDataWithSize:512];
+    NSError *err1 = nil;
+    BOOL pdfOK = [self.allowlist validateData:pdfData declaredMIME:@"application/pdf" error:&err1];
+    XCTAssertTrue(pdfOK, @"PDF should pass with PDF-only allowlist");
+
+    // JPEG should fail.
+    NSData *jpegData = [self jpegDataWithSize:512];
+    NSError *err2 = nil;
+    BOOL jpegOK = [self.allowlist validateData:jpegData declaredMIME:@"image/jpeg" error:&err2];
+    XCTAssertFalse(jpegOK, @"JPEG should fail with PDF-only allowlist");
+    XCTAssertEqual(err2.code, CMErrorCodeAttachmentMimeNotAllowed);
+}
+
+- (void)testSetAllowedMIMETypes_AddJPEGAndPNG {
+    [self.allowlist setAllowedMIMETypes:[NSSet setWithObjects:@"image/jpeg", @"image/png", nil]];
+
+    NSData *jpg = [self jpegDataWithSize:512];
+    NSError *e1 = nil;
+    XCTAssertTrue([self.allowlist validateData:jpg declaredMIME:@"image/jpeg" error:&e1]);
+
+    NSData *png = [self pngDataWithSize:512];
+    NSError *e2 = nil;
+    XCTAssertTrue([self.allowlist validateData:png declaredMIME:@"image/png" error:&e2]);
+
+    NSData *pdf = [self pdfDataWithSize:512];
+    NSError *e3 = nil;
+    XCTAssertFalse([self.allowlist validateData:pdf declaredMIME:@"application/pdf" error:&e3]);
+    XCTAssertEqual(e3.code, CMErrorCodeAttachmentMimeNotAllowed);
+}
+
 @end

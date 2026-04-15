@@ -214,4 +214,34 @@
         @"Under global cap (2 total) should allow");
 }
 
+#pragma mark - Global Rate Cap Via checkLimit (exercises globalBucketPrefix inline code)
+
+- (void)testGlobalCapEnforcedAcrossAllTemplates_ViaCheckLimit {
+    // Verify that the global bucket check enforces the cap across all template keys.
+    // The global cap is implemented inside checkLimitForTenantId:, which checks
+    // the total count across ALL template keys for the tenant.
+    CMTestNotificationRepository *repo = [[CMTestNotificationRepository alloc] init];
+    CMNotificationRateLimiter *limiter = [[CMNotificationRateLimiter alloc] initWithRepository:repo];
+    NSDate *now = [NSDate date];
+
+    // Simulate 5 notifications already in this minute (global count == max).
+    repo.fakeCount = 5;
+    NSError *err = nil;
+    CMRateLimitDecision d = [limiter checkLimitForTenantId:@"tenantX"
+                                               templateKey:@"assigned"
+                                                      date:now
+                                                     error:&err];
+    XCTAssertEqual(d, CMRateLimitDecisionCoalesce,
+                   @"Global cap at limit should coalesce regardless of template key");
+    XCTAssertNil(err);
+}
+
+- (void)testMinuteBucketForDateIsReproducible {
+    NSDate *d1 = [NSDate dateWithTimeIntervalSince1970:1704067200.0];
+    NSDate *d2 = [NSDate dateWithTimeIntervalSince1970:1704067259.0]; // same minute
+    int64_t b1 = [CMNotificationRateLimiter minuteBucketForDate:d1];
+    int64_t b2 = [CMNotificationRateLimiter minuteBucketForDate:d2];
+    XCTAssertEqual(b1, b2, @"Timestamps in the same minute should map to the same bucket");
+}
+
 @end
