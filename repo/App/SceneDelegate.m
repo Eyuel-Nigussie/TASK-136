@@ -296,7 +296,7 @@ willConnectToSession:(UISceneSession *)session
         UINavigationController *primary = [[UINavigationController alloc]
             initWithRootViewController:[self buildSidebarViewController]];
         UINavigationController *secondary = [[UINavigationController alloc]
-            initWithRootViewController:[self buildPlaceholderDetailViewController]];
+            initWithRootViewController:[self buildItineraryDetailViewController]];
         split.viewControllers = @[primary, secondary];
     }
     return split;
