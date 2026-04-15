@@ -17,6 +17,7 @@
 #import "CMTenantContext.h"
 #import "CMUserRepository.h"
 #import "CMCoreDataStack.h"
+#import "CMErrorCodes.h"
 #import "NSManagedObjectContext+CMHelpers.h"
 
 @interface CMAuthFlowIntegrationTests : CMIntegrationTestCase
