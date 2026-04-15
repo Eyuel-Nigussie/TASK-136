@@ -200,6 +200,9 @@ schemes:
       config: Debug
     test:
       config: Debug
+      gatherCoverageData: true
+      coverageTargets:
+        - CourierMatch
       targets:
         - CourierMatchTests
         - CourierMatchUITests
