@@ -19,6 +19,14 @@ extern NSUInteger const CMAttachmentDefaultMaxSizeBytes;
 /// Tenants may set a lower value; values above the default are clamped.
 @property (nonatomic, assign) NSUInteger maxSizeBytes;
 
+/// Configurable allowed MIME types. Defaults to image/jpeg, image/png,
+/// application/pdf. Admin may restrict further (subset of the default set).
+/// Setting an empty or nil value reverts to the default set.
+@property (nonatomic, copy) NSSet<NSString *> *allowedMIMETypes;
+
+/// The default (built-in) allowlist of MIME types.
++ (NSSet<NSString *> *)defaultAllowedMIMETypes;
+
 + (instancetype)shared;
 
 /// Returns YES when `declaredMIME` is on the allowlist (image/jpeg, image/png,

@@ -25,6 +25,7 @@ static NSString *const kTagAllowlist = @"attachment.allowlist";
 - (instancetype)init {
     if ((self = [super init])) {
         _maxSizeBytes = CMAttachmentDefaultMaxSizeBytes;
+        _allowedMIMETypes = [[self class] defaultAllowedMIMETypes];
     }
     return self;
 }
@@ -32,6 +33,32 @@ static NSString *const kTagAllowlist = @"attachment.allowlist";
 - (void)setMaxSizeBytes:(NSUInteger)maxSizeBytes {
     // Tenants may only lower the cap, never exceed the built-in default.
     _maxSizeBytes = MIN(maxSizeBytes, CMAttachmentDefaultMaxSizeBytes);
+}
+
+- (void)setAllowedMIMETypes:(NSSet<NSString *> *)allowedMIMETypes {
+    if (allowedMIMETypes.count == 0) {
+        // Empty/nil reverts to default.
+        _allowedMIMETypes = [[self class] defaultAllowedMIMETypes];
+        return;
+    }
+    // Restrict to subset of default — admins can narrow but not expand.
+    NSSet *defaults = [[self class] defaultAllowedMIMETypes];
+    NSMutableSet *intersection = [allowedMIMETypes mutableCopy];
+    [intersection intersectSet:defaults];
+    _allowedMIMETypes = intersection.count > 0 ? [intersection copy] : defaults;
+}
+
++ (NSSet<NSString *> *)defaultAllowedMIMETypes {
+    static NSSet *defaults;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        defaults = [NSSet setWithArray:@[
+            @"image/jpeg",
+            @"image/png",
+            @"application/pdf",
+        ]];
+    });
+    return defaults;
 }
 
 #pragma mark - Public
@@ -106,16 +133,7 @@ static NSString *const kTagAllowlist = @"attachment.allowlist";
 #pragma mark - Private
 
 - (BOOL)isAllowedMIME:(NSString *)mime {
-    static NSSet<NSString *> *allowed;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        allowed = [NSSet setWithArray:@[
-            @"image/jpeg",
-            @"image/png",
-            @"application/pdf",
-        ]];
-    });
-    return [allowed containsObject:mime];
+    return [self.allowedMIMETypes containsObject:mime];
 }
 
 @end

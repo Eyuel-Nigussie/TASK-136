@@ -46,7 +46,26 @@
         return NO;
     }
 
-    // 3. Prevent self-deletion.
+    // 3. Tenant ownership check: target user must belong to current admin's tenant.
+    if (!user.tenantId || ![user.tenantId isEqualToString:tc.currentTenantId]) {
+        // Audit the cross-tenant denial attempt for compliance traceability.
+        [[CMAuditService shared] recordAction:@"user.account_deletion_denied"
+                                   targetType:@"UserAccount"
+                                     targetId:user.userId
+                                   beforeJSON:nil
+                                    afterJSON:@{@"reason": @"cross-tenant deletion attempt",
+                                                @"targetTenantId": user.tenantId ?: @"",
+                                                @"actorTenantId": tc.currentTenantId ?: @""}
+                                       reason:@"Cross-tenant deletion blocked"
+                                   completion:nil];
+        if (error) {
+            *error = [CMError errorWithCode:CMErrorCodePermissionDenied
+                                    message:@"Cannot delete a user from a different tenant"];
+        }
+        return NO;
+    }
+
+    // 4. Prevent self-deletion.
     if ([tc.currentUserId isEqualToString:user.userId]) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodeValidationFailed
@@ -55,7 +74,7 @@
         return NO;
     }
 
-    // 4. Prevent double-deletion.
+    // 5. Prevent double-deletion.
     if ([user.status isEqualToString:CMUserStatusDeleted]) {
         if (error) {
             *error = [CMError errorWithCode:CMErrorCodeValidationFailed
@@ -64,7 +83,7 @@
         return NO;
     }
 
-    // 5. Soft-delete: set status to deleted, deletedAt, and force logout.
+    // 6. Soft-delete: set status to deleted, deletedAt, and force logout.
     NSString *oldStatus = user.status;
     user.status = CMUserStatusDeleted;
     user.deletedAt = [NSDate date];
@@ -85,7 +104,7 @@
         return NO;
     }
 
-    // 6. Audit trail.
+    // 7. Audit trail.
     [[CMAuditService shared] recordAction:@"user.account_deleted"
                                targetType:@"UserAccount"
                                  targetId:user.userId

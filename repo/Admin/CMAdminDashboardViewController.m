@@ -454,8 +454,11 @@ static NSString * const kActionCellId = @"ActionCell";
     if (![[CMTenantContext shared].currentRole isEqualToString:CMUserRoleAdmin]) { return; }
 
     CMAttachmentAllowlist *allowlist = [CMAttachmentAllowlist shared];
+    NSArray *currentMimes = [[allowlist.allowedMIMETypes allObjects]
+        sortedArrayUsingSelector:@selector(compare:)];
     NSString *info = [NSString stringWithFormat:
-        @"Allowed types: JPG, PNG, PDF\nMax size: %lu bytes (%.1f MB)",
+        @"Allowed types: %@\nMax size: %lu bytes (%.1f MB)",
+        [currentMimes componentsJoinedByString:@", "],
         (unsigned long)allowlist.maxSizeBytes,
         (double)allowlist.maxSizeBytes / (1024.0 * 1024.0)];
 
@@ -468,20 +471,39 @@ static NSString * const kActionCellId = @"ActionCell";
         tf.text = [NSString stringWithFormat:@"%.0f",
                    (double)allowlist.maxSizeBytes / (1024.0 * 1024.0)];
     }];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.placeholder = @"Allowed MIMEs (comma-separated)";
+        tf.text = [currentMimes componentsJoinedByString:@","];
+    }];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Update" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-        double mbValue = [alert.textFields.firstObject.text doubleValue];
+        double mbValue = [alert.textFields[0].text doubleValue];
         if (mbValue <= 0 || mbValue > 10) {
             [CMHaptics warning];
             return;
         }
         NSUInteger oldSize = allowlist.maxSizeBytes;
+        NSSet *oldMimes = allowlist.allowedMIMETypes;
         allowlist.maxSizeBytes = (NSUInteger)(mbValue * 1024.0 * 1024.0);
-        [[CMAuditService shared] recordAction:@"allowlist.max_size_changed"
+
+        // Parse comma-separated MIME list and apply (will be intersected with defaults).
+        NSString *mimeText = alert.textFields[1].text;
+        NSArray *mimeList = [mimeText componentsSeparatedByString:@","];
+        NSMutableSet *newMimes = [NSMutableSet set];
+        for (NSString *m in mimeList) {
+            NSString *trimmed = [m stringByTrimmingCharactersInSet:
+                                 [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (trimmed.length > 0) [newMimes addObject:trimmed.lowercaseString];
+        }
+        allowlist.allowedMIMETypes = newMimes;
+
+        [[CMAuditService shared] recordAction:@"allowlist.config_changed"
                                    targetType:@"AttachmentAllowlist" targetId:@"shared"
-                                   beforeJSON:@{@"maxSizeBytes": @(oldSize)}
-                                    afterJSON:@{@"maxSizeBytes": @(allowlist.maxSizeBytes)}
-                                       reason:@"Admin updated allowlist max size" completion:nil];
+                                   beforeJSON:@{@"maxSizeBytes": @(oldSize),
+                                                @"allowedMIMETypes": [oldMimes allObjects] ?: @[]}
+                                    afterJSON:@{@"maxSizeBytes": @(allowlist.maxSizeBytes),
+                                                @"allowedMIMETypes": [allowlist.allowedMIMETypes allObjects] ?: @[]}
+                                       reason:@"Admin updated allowlist config" completion:nil];
         [CMHaptics success];
     }]];
     [self presentViewController:alert animated:YES completion:nil];

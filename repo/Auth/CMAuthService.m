@@ -355,6 +355,22 @@
                 }];
                 return;
             }
+            // Biometric enrollment-state enforcement: user must have explicitly
+            // enrolled biometric login AND the keychain key must match the
+            // recorded biometricRefId. A bare keychain token is not sufficient.
+            if (!u.biometricEnabled ||
+                !u.biometricRefId ||
+                ![u.biometricRefId isEqualToString:key]) {
+                NSError *e = [CMError errorWithCode:CMErrorCodeAuthInvalidCredentials
+                                            message:@"Biometric login not enrolled for this account"];
+                [self postMainCompletion:^{
+                    if (completion) { completion([self resultWithOutcome:CMAuthStepOutcomeFailed
+                                                                     user:nil
+                                                                    error:e
+                                                           pendingCaptcha:nil]); }
+                }];
+                return;
+            }
             CMLoginHistoryRepository *hist = [[CMLoginHistoryRepository alloc] initWithContext:ctx];
             [CMLockoutPolicy applySuccessTo:u];
             [hist recordEntryForUserId:u.userId tenantId:u.tenantId outcome:CMLoginOutcomeSuccess];

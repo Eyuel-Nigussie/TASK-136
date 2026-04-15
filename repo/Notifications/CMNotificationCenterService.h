@@ -48,6 +48,17 @@ extern NSNotificationName const CMNotificationUnreadCountDidChangeNotification;
                  subjectEntityId:(nullable NSString *)subjectEntityId
                       completion:(nullable void (^)(CMNotificationItem * _Nullable item, NSError * _Nullable error))completion;
 
+/// Emit with explicit tenant binding — preferred for background tasks where
+/// CMTenantContext may be unset/stale. Stamps the notification and bucket
+/// using the supplied tenantId rather than ambient context.
+- (void)emitNotificationForEvent:(NSString *)templateKey
+                        tenantId:(NSString *)tenantId
+                         payload:(nullable NSDictionary *)payload
+                 recipientUserId:(NSString *)recipientUserId
+               subjectEntityType:(nullable NSString *)subjectEntityType
+                 subjectEntityId:(nullable NSString *)subjectEntityId
+                      completion:(nullable void (^)(CMNotificationItem * _Nullable item, NSError * _Nullable error))completion;
+
 #pragma mark - Read & Ack
 
 /// Sets readAt on a notification. If the notification is a digest, cascades

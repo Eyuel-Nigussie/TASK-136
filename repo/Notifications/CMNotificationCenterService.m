@@ -60,8 +60,29 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
                subjectEntityType:(NSString *)subjectEntityType
                  subjectEntityId:(NSString *)subjectEntityId
                       completion:(void (^)(CMNotificationItem * _Nullable, NSError * _Nullable))completion {
+    // Delegate to the explicit-tenant variant using the ambient context.
+    NSString *ambientTenant = [CMTenantContext shared].currentTenantId ?: @"";
+    [self emitNotificationForEvent:templateKey
+                          tenantId:ambientTenant
+                           payload:payload
+                   recipientUserId:recipientUserId
+                 subjectEntityType:subjectEntityType
+                   subjectEntityId:subjectEntityId
+                        completion:completion];
+}
+
+- (void)emitNotificationForEvent:(NSString *)templateKey
+                        tenantId:(NSString *)tenantId
+                         payload:(NSDictionary *)payload
+                 recipientUserId:(NSString *)recipientUserId
+               subjectEntityType:(NSString *)subjectEntityType
+                 subjectEntityId:(NSString *)subjectEntityId
+                      completion:(void (^)(CMNotificationItem * _Nullable, NSError * _Nullable))completion {
 
     CMLogInfo(kTag, @"emit begin: template=%@, recipient=%@", templateKey, [CMDebugLogger redact:recipientUserId]);
+
+    // Capture explicit tenantId outside the block so we don't depend on ambient context.
+    NSString *explicitTenantId = [tenantId copy] ?: @"";
 
     [[CMCoreDataStack shared] performBackgroundTask:^(NSManagedObjectContext *bgCtx) {
         NSError *error = nil;
@@ -73,7 +94,8 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
             [[CMNotificationRateLimiter alloc] initWithRepository:bgRepo];
 
         // ---- Resolve tenant config for template overrides ----
-        NSDictionary *tenantConfigJSON = [self tenantConfigJSONInContext:bgCtx];
+        NSDictionary *tenantConfigJSON = [self tenantConfigJSONForTenantId:explicitTenantId
+                                                                   context:bgCtx];
 
         // ---- Render template ----
         CMRenderedNotification *rendered =
@@ -83,9 +105,9 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
         NSString *renderedTitle = rendered.title ?: templateKey;
         NSString *renderedBody  = rendered.body  ?: @"";
 
-        // ---- Rate-limit check ----
+        // ---- Rate-limit check (uses explicit tenantId) ----
         NSDate *now = [NSDate date];
-        NSString *tenantId = [CMTenantContext shared].currentTenantId ?: @"";
+        NSString *tenantId = explicitTenantId;
         CMRateLimitDecision decision =
             [bgLimiter checkLimitForTenantId:tenantId
                                  templateKey:templateKey
@@ -93,8 +115,9 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
                                        error:&error];
         if (error) {
             CMLogError(kTag, @"rate limit check failed: %@", error);
-            // Proceed with allow on error — do not drop notifications.
-            decision = CMRateLimitDecisionAllow;
+            // Fail-closed: when we cannot confirm we are under the cap,
+            // coalesce instead of allowing — preserves the strict 5/min cap.
+            decision = CMRateLimitDecisionCoalesce;
             error = nil;
         }
 
@@ -104,6 +127,11 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
 
         // ---- Persist the individual notification ----
         CMNotificationItem *item = [bgRepo insertNotification];
+        // Override ambient-stamped tenantId with the explicit tenantId so
+        // background-context emits don't depend on volatile session state.
+        if (explicitTenantId.length > 0) {
+            item.tenantId = explicitTenantId;
+        }
         item.templateKey       = templateKey;
         item.payloadJSON       = payload;
         item.renderedTitle     = renderedTitle;
@@ -456,8 +484,13 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
 }
 
 - (NSDictionary *)tenantConfigJSONInContext:(NSManagedObjectContext *)ctx {
-    NSString *tenantId = [CMTenantContext shared].currentTenantId;
-    if (!tenantId) return nil;
+    return [self tenantConfigJSONForTenantId:[CMTenantContext shared].currentTenantId
+                                     context:ctx];
+}
+
+- (NSDictionary *)tenantConfigJSONForTenantId:(NSString *)tenantId
+                                      context:(NSManagedObjectContext *)ctx {
+    if (tenantId.length == 0) return nil;
 
     CMTenantRepository *tenantRepo = [[CMTenantRepository alloc] initWithContext:ctx];
     NSError *err = nil;

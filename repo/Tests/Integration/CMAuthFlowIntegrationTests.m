@@ -285,7 +285,9 @@
     XCTAssertGreaterThanOrEqual(user.failedAttempts, (int16_t)[CMLockoutPolicy lockoutThreshold],
                                 @"Failed attempts should be >= lockout threshold");
 
-    // The next attempt should return locked
+    // The next attempt MUST return Locked (the user has crossed the lockout
+    // threshold and lockUntil is in the future). Allowing CaptchaRequired
+    // here would mask a regression in the lockout enforcement path.
     XCTestExpectation *lockedExp = [self expectationWithDescription:@"Account locked"];
     [[CMAuthService shared] loginWithTenantId:self.testTenantId
                                      username:@"lockoutuser"
@@ -293,10 +295,8 @@
                                 captchaChallengeId:nil
                                  captchaAnswer:nil
                                     completion:^(CMAuthAttemptResult *result) {
-        // Should be locked or captcha-required (both indicate the lockout path is active)
-        XCTAssertTrue(result.outcome == CMAuthStepOutcomeLocked ||
-                       result.outcome == CMAuthStepOutcomeCaptchaRequired,
-                       @"Account should be locked or captcha-gated, got %ld",
+        XCTAssertEqual(result.outcome, CMAuthStepOutcomeLocked,
+                       @"Account must return Locked once lockUntil is in the future, got %ld",
                        (long)result.outcome);
         [lockedExp fulfill];
     }];
