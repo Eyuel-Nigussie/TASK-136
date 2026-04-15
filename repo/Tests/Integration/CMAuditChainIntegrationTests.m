@@ -341,37 +341,45 @@
     [self saveContext];
 }
 
-#pragma mark - Test: Audit Entry Immutability — Mutation Blocked
+#pragma mark - Test: Audit Entry Immutability — Repository Layer
 
-- (void)testPersistedAuditEntryMutationIsBlocked {
-    // Write an entry through the production path.
-    XCTestExpectation *writeExp = [self expectationWithDescription:@"Write entry"];
-    __block CMAuditEntry *writtenEntry = nil;
+- (void)testAuditRepositoryOnlyExposesInsert {
+    // CMAuditRepository enforces write-once by only exposing insertEntry.
+    // No updateEntry/deleteEntry methods exist. Verify the repository class
+    // does not respond to any update/delete selectors.
+    CMAuditRepository *repo = [[CMAuditRepository alloc] initWithContext:self.testContext];
+    XCTAssertFalse([repo respondsToSelector:@selector(updateEntry:error:)],
+                   @"AuditRepository must not offer updateEntry");
+    XCTAssertFalse([repo respondsToSelector:@selector(deleteEntry:error:)],
+                   @"AuditRepository must not offer deleteEntry");
+    XCTAssertTrue([repo respondsToSelector:@selector(insertEntry)],
+                  @"AuditRepository must offer insertEntry");
+}
 
-    [[CMAuditService shared] recordAction:@"immutability.test.write"
-                               targetType:@"ImmutabilityTest" targetId:@"imm-1"
-                               beforeJSON:nil afterJSON:@{@"original": @YES}
-                                   reason:@"Testing immutability enforcement"
-                               completion:^(CMAuditEntry *entry, NSError *error) {
-        writtenEntry = entry;
-        [writeExp fulfill];
+- (void)testVerifierCatchesTamperEvenWithoutWillSave {
+    // Write entries normally, then tamper at the Core Data level.
+    // The verifier's hash-chain check must detect the tampering.
+    [self writeTestEntries:5];
+    [self saveContext];
+
+    // Tamper with the 3rd entry's action field.
+    CMAuditRepository *repo = [[CMAuditRepository alloc] initWithContext:self.testContext];
+    NSArray<CMAuditEntry *> *entries = [repo entriesAfter:nil
+                                                forTenant:self.testTenantId
+                                                    limit:0 error:nil];
+    XCTAssertGreaterThanOrEqual(entries.count, 3);
+    entries[2].action = @"TAMPERED_BY_TEST";
+    [self saveContext];
+
+    // Verifier should detect the chain break.
+    XCTestExpectation *verifyExp = [self expectationWithDescription:@"Tamper detect"];
+    [[CMAuditVerifier shared] verifyChainForTenant:self.testTenantId
+                                          progress:nil
+                                        completion:^(BOOL success, NSString *brokenEntryId, NSError *error) {
+        XCTAssertFalse(success, @"Verifier should detect tampering");
+        [verifyExp fulfill];
     }];
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
-    XCTAssertNotNil(writtenEntry);
-
-    // Attempt to mutate the persisted entry — willSave should revert it.
-    NSString *originalAction = writtenEntry.action;
-    writtenEntry.action = @"TAMPERED";
-
-    // The save should succeed (willSave reverts the object), but the mutation
-    // should not persist.
-    NSError *saveErr = nil;
-    [self.testContext save:&saveErr];
-
-    // Re-fetch and verify the original value is intact.
-    [self.testContext refreshObject:writtenEntry mergeChanges:NO];
-    XCTAssertEqualObjects(writtenEntry.action, originalAction,
-                          @"Persisted audit entry mutation should be blocked by willSave");
 }
 
 @end

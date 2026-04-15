@@ -514,13 +514,14 @@
 - (void)testDisputeServiceAllowsCourierToOpenDispute {
     [self switchToUser:self.courierUser];
     CMOrder *order = [self insertTestOrder:@"ord-dispute-svc-2"];
+    order.assignedCourierId = self.courierUser.userId; // courier must own the order
     [self saveContext];
 
     CMDisputeService *svc = [[CMDisputeService alloc] initWithContext:self.testContext];
     NSError *err = nil;
     CMDispute *dispute = [svc openDisputeForOrder:order orderId:order.orderId
                                            reason:@"Wrong item" category:@"wrong_item" error:&err];
-    XCTAssertNotNil(dispute, @"Courier should be able to open disputes: %@", err);
+    XCTAssertNotNil(dispute, @"Courier should be able to open disputes for own orders: %@", err);
 }
 
 - (void)testDisputeServiceRejectsDispatcherFromOpeningDispute {
