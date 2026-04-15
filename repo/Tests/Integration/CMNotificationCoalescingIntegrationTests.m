@@ -299,9 +299,14 @@
     CMNotificationCenterService *service =
         [[CMNotificationCenterService alloc] initWithRepository:nil renderer:nil rateLimiter:nil];
 
-    // Emit a notification addressed to the courier user.
-    CMNotificationItem *item = [self emitNotificationWithTemplateKey:@"cross_read" service:service];
-    XCTAssertNotNil(item, @"Notification should be emitted");
+    // Insert notification directly to avoid rate-limiter interference from other tests.
+    CMNotificationRepository *repo = [[CMNotificationRepository alloc] initWithContext:self.testContext];
+    CMNotificationItem *item = [repo insertNotification];
+    item.templateKey = @"cross_read";
+    item.recipientUserId = self.courierUser.userId;
+    item.status = CMNotificationStatusActive;
+    item.renderedTitle = @"Test";
+    item.renderedBody = @"Test body";
     NSString *notifId = item.notificationId;
     XCTAssertNotNil(notifId, @"Notification should have an ID");
     [self saveContext];
@@ -333,9 +338,14 @@
     CMNotificationCenterService *service =
         [[CMNotificationCenterService alloc] initWithRepository:nil renderer:nil rateLimiter:nil];
 
-    // Emit a notification addressed to the courier user.
-    CMNotificationItem *item = [self emitNotificationWithTemplateKey:@"cross_ack" service:service];
-    XCTAssertNotNil(item, @"Notification should be emitted");
+    // Insert notification directly to avoid rate-limiter interference from other tests.
+    CMNotificationRepository *repo = [[CMNotificationRepository alloc] initWithContext:self.testContext];
+    CMNotificationItem *item = [repo insertNotification];
+    item.templateKey = @"cross_ack";
+    item.recipientUserId = self.courierUser.userId;
+    item.status = CMNotificationStatusActive;
+    item.renderedTitle = @"Test";
+    item.renderedBody = @"Test body";
     NSString *notifId = item.notificationId;
     XCTAssertNotNil(notifId, @"Notification should have an ID");
     [self saveContext];
@@ -380,13 +390,14 @@
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
     XCTAssertNotNil(notifId);
 
-    // Allow async audit write to complete
+    // Allow async audit write to complete and merge to view context.
     XCTestExpectation *delay = [self expectationWithDescription:@"Audit write delay"];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{ [delay fulfill]; });
-    [self waitForExpectationsWithTimeout:3.0 handler:nil];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
 
-    // Verify audit entry exists for notification.created
+    // Reset and refetch to pick up changes from background context save.
+    [self.testContext reset];
     NSFetchRequest *fetch = [NSFetchRequest fetchRequestWithEntityName:@"AuditEntry"];
     fetch.predicate = [NSPredicate predicateWithFormat:
                        @"action == %@ AND targetId == %@", @"notification.created", notifId];
@@ -416,12 +427,14 @@
     [svc markRead:notifId error:&readErr];
     XCTAssertNil(readErr);
 
-    // Allow async audit write
+    // Allow async audit write to complete and merge to the view context.
     XCTestExpectation *delay = [self expectationWithDescription:@"Delay"];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{ [delay fulfill]; });
-    [self waitForExpectationsWithTimeout:3.0 handler:nil];
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
 
+    // Reset and refetch to pick up changes from background context save.
+    [self.testContext reset];
     NSFetchRequest *fetch = [NSFetchRequest fetchRequestWithEntityName:@"AuditEntry"];
     fetch.predicate = [NSPredicate predicateWithFormat:
                        @"action == %@ AND targetId == %@", @"notification.read", notifId];

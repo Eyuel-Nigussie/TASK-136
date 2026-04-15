@@ -44,9 +44,10 @@
 
 /// Returns a valid CSV data row.
 - (NSString *)validCSVRow {
+    // Use far-future dates to avoid past-date rejection.
     return @"123 Main St,New York,NY,10001,"
            @"456 Oak Ave,Los Angeles,CA,90001,"
-           @"2026-01-15T08:00:00Z,2026-01-15T18:00:00Z,car,500,200";
+           @"2099-01-15T08:00:00.000Z,2099-01-15T18:00:00.000Z,car,500,200";
 }
 
 #pragma mark - Valid CSV Import
@@ -57,19 +58,27 @@
     NSURL *url = [self writeTempFile:csv extension:@"csv"];
 
     XCTestExpectation *exp = [self expectationWithDescription:@"CSV import"];
+    __block NSUInteger importedCount = 0;
     [self.importer importFromURL:url completion:^(NSArray<CMItinerary *> *itineraries, NSError *error) {
         XCTAssertNotNil(itineraries, @"Itineraries should be returned");
         XCTAssertNil(error, @"No error expected for valid CSV: %@", error);
-        XCTAssertEqual(itineraries.count, 2, @"Should import 2 rows");
-
-        CMItinerary *first = itineraries.firstObject;
-        XCTAssertEqualObjects(first.vehicleType, @"car");
-        XCTAssertEqualObjects(first.status, @"draft");
-        XCTAssertNotNil(first.departureWindowStart);
-        XCTAssertNotNil(first.departureWindowEnd);
+        importedCount = itineraries.count;
         [exp fulfill];
     }];
     [self waitForExpectationsWithTimeout:10.0 handler:nil];
+    XCTAssertEqual(importedCount, (NSUInteger)2, @"Should import 2 rows");
+
+    // Refetch from test context to avoid cross-context object access issues.
+    [self.testContext reset];
+    NSFetchRequest *fetch = [NSFetchRequest fetchRequestWithEntityName:@"Itinerary"];
+    fetch.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"createdAt" ascending:YES]];
+    NSArray<CMItinerary *> *refetched = [self.testContext executeFetchRequest:fetch error:nil];
+    XCTAssertGreaterThanOrEqual(refetched.count, 2);
+    CMItinerary *first = refetched.firstObject;
+    XCTAssertEqualObjects(first.vehicleType, @"car");
+    XCTAssertEqualObjects(first.status, @"draft");
+    XCTAssertNotNil(first.departureWindowStart);
+    XCTAssertNotNil(first.departureWindowEnd);
 
     [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
 }
@@ -83,22 +92,30 @@
         @"\"origin_state\":\"NY\",\"origin_zip\":\"10001\","
         @"\"dest_line1\":\"456 Oak Ave\",\"dest_city\":\"Los Angeles\","
         @"\"dest_state\":\"CA\",\"dest_zip\":\"90001\","
-        @"\"departure_start\":\"2026-01-15T08:00:00Z\","
-        @"\"departure_end\":\"2026-01-15T18:00:00Z\","
+        @"\"departure_start\":\"2099-01-15T08:00:00.000Z\","
+        @"\"departure_end\":\"2099-01-15T18:00:00.000Z\","
         @"\"vehicle_type\":\"van\",\"capacity_volume\":\"300\",\"capacity_weight\":\"150\""
         @"}"
         @"]";
     NSURL *url = [self writeTempFile:json extension:@"json"];
 
     XCTestExpectation *exp = [self expectationWithDescription:@"JSON import"];
+    __block NSUInteger importedCount = 0;
     [self.importer importFromURL:url completion:^(NSArray<CMItinerary *> *itineraries, NSError *error) {
         XCTAssertNotNil(itineraries, @"Itineraries should be returned");
         XCTAssertNil(error, @"No error expected for valid JSON: %@", error);
-        XCTAssertEqual(itineraries.count, 1, @"Should import 1 row");
-        XCTAssertEqualObjects(itineraries.firstObject.vehicleType, @"van");
+        importedCount = itineraries.count;
         [exp fulfill];
     }];
     [self waitForExpectationsWithTimeout:10.0 handler:nil];
+    XCTAssertEqual(importedCount, (NSUInteger)1, @"Should import 1 row");
+
+    // Refetch from test context to avoid cross-context object access.
+    [self.testContext reset];
+    NSFetchRequest *fetch = [NSFetchRequest fetchRequestWithEntityName:@"Itinerary"];
+    NSArray<CMItinerary *> *refetched = [self.testContext executeFetchRequest:fetch error:nil];
+    XCTAssertGreaterThanOrEqual(refetched.count, 1);
+    XCTAssertEqualObjects(refetched.firstObject.vehicleType, @"van");
 
     [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
 }
@@ -112,7 +129,7 @@
                     @"departure_start,departure_end,vehicle_type,capacity_volume,capacity_weight\n"
                     @"123 Main St,New York,NY,10001,"
                     @"456 Oak Ave,Los Angeles,CA,"
-                    @"2026-01-15T08:00:00Z,2026-01-15T18:00:00Z,car,500,200";
+                    @"2099-01-15T08:00:00.000Z,2099-01-15T18:00:00.000Z,car,500,200";
     NSURL *url = [self writeTempFile:csv extension:@"csv"];
 
     XCTestExpectation *exp = [self expectationWithDescription:@"Bad schema"];
@@ -137,7 +154,7 @@
                      [self validCSVRow],
                      @"789 Elm St,Chicago,IL,60601,"
                      @"321 Pine St,Houston,TX,77001,"
-                     @"2026-02-01T09:00:00Z,2026-02-01T17:00:00Z,helicopter,100,50",
+                     @"2099-02-01T09:00:00.000Z,2099-02-01T17:00:00.000Z,helicopter,100,50",
                      [self validCSVRow]];
     NSURL *url = [self writeTempFile:csv extension:@"csv"];
 
@@ -163,7 +180,7 @@
                      [self validCSVHeader],
                      @"789 Elm St,Chicago,IL,60601,"
                      @"321 Pine St,Houston,TX,77001,"
-                     @"2026-02-01T09:00:00Z,2026-02-01T17:00:00Z,helicopter,100,50"];
+                     @"2099-02-01T09:00:00.000Z,2099-02-01T17:00:00.000Z,helicopter,100,50"];
     NSURL *url = [self writeTempFile:csv extension:@"csv"];
 
     XCTestExpectation *exp = [self expectationWithDescription:@"All rejected"];
@@ -223,7 +240,7 @@
                      [self validCSVHeader],
                      @"123 Main St,New York,NY,10001,"
                      @"456 Oak Ave,Los Angeles,CA,90001,"
-                     @"2026-01-15T18:00:00Z,2026-01-15T08:00:00Z,car,500,200"];
+                     @"2099-01-15T18:00:00.000Z,2099-01-15T08:00:00.000Z,car,500,200"];
     NSURL *url = [self writeTempFile:csv extension:@"csv"];
 
     XCTestExpectation *exp = [self expectationWithDescription:@"End before start"];
