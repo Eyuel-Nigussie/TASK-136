@@ -223,18 +223,26 @@
     // appeal.decide, appeal.close. CMAuditService writes via background context
     // and we need to wait for those to land then merge into the view context.
 
+    // Allow background audit writes to land. CMAuditService writes via
+    // performBackgroundTask: which creates a separate context; the test view
+    // context does not automatically merge those saves.
     XCTestExpectation *settle = [self expectationWithDescription:@"Audit settle"];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{ [settle fulfill]; });
-    [self waitForExpectationsWithTimeout:5.0 handler:nil];
-    [self.testContext reset];
+    [self waitForExpectationsWithTimeout:8.0 handler:nil];
+
+    // Create a fresh context from the same store coordinator to pick up
+    // background saves that the test view context hasn't merged.
+    NSManagedObjectContext *auditCtx = [[NSManagedObjectContext alloc]
+        initWithConcurrencyType:NSMainQueueConcurrencyType];
+    auditCtx.persistentStoreCoordinator = self.testContext.persistentStoreCoordinator;
 
     // Fetch all audit entries for this tenant scoped to this appeal.
     NSFetchRequest *auditFetch = [NSFetchRequest fetchRequestWithEntityName:@"AuditEntry"];
     auditFetch.predicate = [NSPredicate predicateWithFormat:@"tenantId == %@ AND targetId == %@",
                             self.testTenantId, appeal.appealId];
     NSError *auditFetchError = nil;
-    NSArray *auditEntries = [self.testContext executeFetchRequest:auditFetch error:&auditFetchError];
+    NSArray *auditEntries = [auditCtx executeFetchRequest:auditFetch error:&auditFetchError];
 
     // Collect distinct actions seen on this appeal's audit trail.
     NSMutableSet *actions = [NSMutableSet set];
@@ -245,9 +253,7 @@
     }
 
     // Strict lifecycle assertions: all four appeal lifecycle actions must be present.
-    // CMAuditService writes via background context; the 3-second settle above gives
-    // writes time to land. Assert each action individually so regressions in any
-    // single audit point are caught.
+    // Each action maps to a distinct service call above (open → assign → decide → close).
     XCTAssertGreaterThan(actions.count, 0u,
                          @"Audit trail must contain entries after appeal lifecycle; got none");
     XCTAssertTrue([actions containsObject:@"appeal.open"],

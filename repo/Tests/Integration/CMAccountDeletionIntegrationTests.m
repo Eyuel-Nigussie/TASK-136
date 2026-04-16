@@ -194,14 +194,16 @@
                           @"User from other tenant must remain active after blocked delete");
 }
 
-- (void)testAdminCannotDeleteUserWithNilTenantId {
+- (void)testAdminCannotDeleteUserWithEmptyTenantId {
     [self switchToUser:self.adminUser];
 
+    // Core Data requires tenantId to be non-nil, so use an empty string
+    // to simulate a user record with no meaningful tenant association.
     CMUserAccount *noTenantUser =
         [NSEntityDescription insertNewObjectForEntityForName:@"UserAccount"
                                       inManagedObjectContext:self.testContext];
-    noTenantUser.userId    = @"user-nil-tenant";
-    noTenantUser.tenantId  = nil; // missing tenant
+    noTenantUser.userId    = @"user-empty-tenant";
+    noTenantUser.tenantId  = @""; // empty — does not match admin's tenant
     noTenantUser.username  = @"ghost";
     noTenantUser.displayName = @"Ghost";
     noTenantUser.role      = CMUserRoleCourier;
@@ -216,7 +218,7 @@
     BOOL deleted = [svc deleteAccount:noTenantUser error:&err];
 
     XCTAssertFalse(deleted,
-                   @"Admin must NOT be able to delete a user with nil tenantId");
+                   @"Admin must NOT be able to delete a user with empty tenantId");
     XCTAssertNotNil(err);
     XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
 }
