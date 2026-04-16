@@ -91,21 +91,13 @@ This is a native iOS app — the Docker container delegates to the host Mac's Xc
 
 ## Running the Application
 
-1. **First-time setup (one-time only):**
-   ```bash
-   ./scripts/docker-setup.sh
-   ```
-   This enables Remote Login (SSH) on your Mac and authorizes the Docker SSH key. You will be prompted for your macOS password once. After this, all Docker commands are fully automatic.
-
-   > **Alternative:** If you prefer not to run the setup script, `docker compose run build` will auto-generate the SSH key and tell you the two commands to run manually.
-
-2. **Build and launch on iOS Simulator:**
+1. **Build and launch on iOS Simulator:**
    ```bash
    docker compose run build
    ```
-   This auto-detects macOS, verifies SSH connectivity, builds the project via `xcodebuild`, installs the app on the simulator, and launches it. The simulator window opens on your Mac.
+   On first run, the container automatically detects macOS, generates an SSH key, and configures host communication. If Remote Login is not yet enabled, it prints two one-time setup commands to run on your Mac — after that, every subsequent `docker compose run build` is fully automatic with zero manual steps.
 
-3. **Stop and Clean Up:**
+2. **Stop and Clean Up:**
    ```bash
    docker compose down -v
    ```
