@@ -6,27 +6,30 @@ Native iOS application (Objective-C / UIKit) for offline courier dispatching, it
 
 ## Quick Start
 
-### iOS Developer Workflow (Primary)
+### Run the App
 
 ```bash
-# 1. Generate the Xcode project from the spec file
-xcodegen generate
-
-# 2. Open in Xcode 16+
-open CourierMatch.xcodeproj
-
-# 3. In Xcode: select the "CourierMatch" scheme, choose the
-#    "iPhone 16 Pro" (or any iOS 15+) simulator, then press ⌘R.
+./start.sh
 ```
 
-The CourierMatch login screen appears on the simulator.
+Builds the project, installs it on the iOS Simulator, and launches it. The CourierMatch login screen appears on the simulator.
 
-### Docker Validation Workflow (Any Platform)
+### Run Tests
 
 ```bash
-# Cross-platform static validation — no Xcode required
+./run_tests.sh              # all tests (unit + integration)
+./run_tests.sh unit         # unit tests only
+./run_tests.sh integration  # integration tests only
+./run_tests.sh ui           # UI tests only
+```
+
+### Docker Validation (Any Platform)
+
+```bash
 docker compose run build
 ```
+
+Runs platform-independent project structure and test coverage validation inside Docker. No Xcode required.
 
 ### Verify the App Works
 
@@ -46,7 +49,7 @@ After the simulator launches:
 * **Persistence:** Core Data (dual-store: main + sidecar) with multi-tenant scoping
 * **Security:** Keychain (PBKDF2-SHA512 with pepper), AES-256-CBC + HMAC-SHA256 field encryption, NSFileProtectionComplete, biometric re-auth (LocalAuthentication)
 * **Build:** XcodeGen (project.yml → .xcodeproj), Xcode 16+, iOS 15.0+ deployment target
-* **Containerization:** Docker & Docker Compose (Required)
+* **Containerization:** Docker & Docker Compose (validation only)
 * **Testing:** XCTest (unit, integration, UI)
 
 ## Project Structure
@@ -73,9 +76,10 @@ After the simulator launches:
 │   ├── Integration/        # 8+ files, ~84 test methods
 │   └── UI/                 # 5 files, ~27 test methods
 ├── docs/                   # design.md, questions.md, apispec.md
-├── scripts/                # build/test/run wrappers, docker-setup
+├── scripts/                # build/test/run wrappers, validation scripts
+├── start.sh                # Launch app locally on iOS Simulator - MANDATORY
 ├── Dockerfile              # Container build definition - MANDATORY
-├── docker-compose.yml      # Multi-container orchestration - MANDATORY
+├── docker-compose.yml      # Docker validation service - MANDATORY
 ├── Makefile                # Native macOS build automation
 ├── project.yml             # XcodeGen spec (generates .xcodeproj)
 ├── run_tests.sh            # Standardized test execution script - MANDATORY
@@ -84,52 +88,39 @@ After the simulator launches:
 
 ## Prerequisites
 
-* [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
-* **macOS with Xcode 16+** and **XcodeGen** installed on the host Mac
-
-This is a native iOS app — the Docker container delegates to the host Mac's Xcode toolchain via SSH. On non-macOS hosts, the commands detect this and exit with a clear message.
+* **macOS with Xcode 16+** and **XcodeGen** (`brew install xcodegen`)
+* [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (for validation only)
 
 ## Running the Application
 
-1. **Build and launch on iOS Simulator:**
-   ```bash
-   docker compose run build
-   ```
-   On first run, the container automatically detects macOS, generates an SSH key, and configures host communication. If Remote Login is not yet enabled, it prints two one-time setup commands to run on your Mac — after that, every subsequent `docker compose run build` is fully automatic with zero manual steps.
-
-2. **Stop and Clean Up:**
-   ```bash
-   docker compose down -v
-   ```
-
-## All Docker Commands
-
 ```bash
-docker compose run build       # Build + launch on iOS Simulator
-docker compose run run-mac     # Alias for build
-docker compose run test-mac    # Run full XCTest suite on host Mac
+./start.sh
 ```
 
-All commands auto-detect the host platform. On non-macOS hosts, they exit with a message explaining that macOS with Xcode is required. SSH setup is automatic — keys are generated on first run.
+Builds the project, installs it on the iOS Simulator (iPhone 17 Pro by default), and launches it. Override the simulator with `SIMULATOR="iPhone 16 Pro" ./start.sh`.
 
 ## Testing
 
-Run the full XCTest suite via the standardized test script:
+Run the full XCTest suite locally:
 
 ```bash
-chmod +x run_tests.sh
-./run_tests.sh
+./run_tests.sh              # all tests (unit + integration)
+./run_tests.sh unit         # unit tests only
+./run_tests.sh integration  # integration tests only
+./run_tests.sh ui           # UI tests only
 ```
-
-Or directly via Docker Compose:
-
-```bash
-docker compose run test-mac
-```
-
-Both commands auto-detect macOS, verify SSH connectivity, then delegate to the host Mac's `xcodebuild test`. On non-macOS hosts, they exit with a message explaining that macOS with Xcode is required.
 
 Exit code 0 = all tests passed; non-zero = failure. Suitable for CI/CD pipelines with macOS runners.
+
+## Docker
+
+Docker is used only for platform-independent validation (no Xcode required):
+
+```bash
+docker compose run build
+```
+
+This runs `validate-build.py` (project structure) and `validate-tests.py` (test coverage) inside a lightweight Alpine container.
 
 ## Seeded Credentials
 

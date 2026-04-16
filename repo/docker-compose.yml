@@ -1,36 +1,12 @@
 # CourierMatch iOS -- Docker Compose
 #
-# Two primary commands:
-#   docker compose run build       Build + launch on iOS Simulator
-#   docker compose run test-mac    Run full XCTest suite
-#
-# Both auto-detect macOS, auto-generate SSH keys, and auto-configure
-# host communication. First run requires Remote Login enabled on the Mac.
+# Single command:
+#   docker compose run build    Validate project structure and tests
 
 services:
-  couriermatch:
+  build:
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
       - .:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      - HOST_USER=${USER}
-      - HOST_PROJECT_PATH=${PWD}
-
-  build:
-    extends:
-      service: couriermatch
-    command: build
-
-  run-mac:
-    extends:
-      service: couriermatch
-    command: build
-
-  test-mac:
-    extends:
-      service: couriermatch
-    command: test-mac
