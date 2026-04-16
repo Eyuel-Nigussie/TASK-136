@@ -275,7 +275,9 @@ static NSArray<NSString *> *CMDisputeReasonCategories(void) {
     // Emit dispute_opened notification
     CMNotificationCenterService *notifService = [[CMNotificationCenterService alloc] init];
     NSString *recipientId = [CMTenantContext shared].currentUserId ?: @"";
+    NSString *tid = [CMTenantContext shared].currentTenantId ?: @"";
     [notifService emitNotificationForEvent:@"dispute_opened"
+                                  tenantId:tid
                                    payload:@{@"orderRef": self.order.externalOrderRef ?: dispute.orderId,
                                              @"reason": reason}
                            recipientUserId:recipientId

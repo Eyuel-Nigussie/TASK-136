@@ -161,6 +161,66 @@
     XCTAssertEqualObjects(self.dispatcherUser.status, CMUserStatusDeleted);
 }
 
+#pragma mark - Test: Cross-Tenant Deletion Blocked
+
+- (void)testAdminCannotDeleteUserFromDifferentTenant {
+    [self switchToUser:self.adminUser]; // on test-tenant-001
+
+    // Create a user belonging to a completely different tenant.
+    CMUserAccount *otherTenantUser =
+        [NSEntityDescription insertNewObjectForEntityForName:@"UserAccount"
+                                      inManagedObjectContext:self.testContext];
+    otherTenantUser.userId    = @"user-other-tenant";
+    otherTenantUser.tenantId  = @"other-tenant-999"; // different tenant
+    otherTenantUser.username  = @"outsider";
+    otherTenantUser.displayName = @"Outsider";
+    otherTenantUser.role      = CMUserRoleCourier;
+    otherTenantUser.status    = CMUserStatusActive;
+    otherTenantUser.createdAt = [NSDate date];
+    otherTenantUser.updatedAt = [NSDate date];
+    otherTenantUser.version   = 1;
+    [self saveContext];
+
+    CMAccountService *svc = [[CMAccountService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    BOOL deleted = [svc deleteAccount:otherTenantUser error:&err];
+
+    XCTAssertFalse(deleted,
+                   @"Admin must NOT be able to delete a user from a different tenant");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied,
+                   @"Cross-tenant delete must return PermissionDenied, got code %ld", (long)err.code);
+    XCTAssertEqualObjects(otherTenantUser.status, CMUserStatusActive,
+                          @"User from other tenant must remain active after blocked delete");
+}
+
+- (void)testAdminCannotDeleteUserWithNilTenantId {
+    [self switchToUser:self.adminUser];
+
+    CMUserAccount *noTenantUser =
+        [NSEntityDescription insertNewObjectForEntityForName:@"UserAccount"
+                                      inManagedObjectContext:self.testContext];
+    noTenantUser.userId    = @"user-nil-tenant";
+    noTenantUser.tenantId  = nil; // missing tenant
+    noTenantUser.username  = @"ghost";
+    noTenantUser.displayName = @"Ghost";
+    noTenantUser.role      = CMUserRoleCourier;
+    noTenantUser.status    = CMUserStatusActive;
+    noTenantUser.createdAt = [NSDate date];
+    noTenantUser.updatedAt = [NSDate date];
+    noTenantUser.version   = 1;
+    [self saveContext];
+
+    CMAccountService *svc = [[CMAccountService alloc] initWithContext:self.testContext];
+    NSError *err = nil;
+    BOOL deleted = [svc deleteAccount:noTenantUser error:&err];
+
+    XCTAssertFalse(deleted,
+                   @"Admin must NOT be able to delete a user with nil tenantId");
+    XCTAssertNotNil(err);
+    XCTAssertEqual(err.code, CMErrorCodePermissionDenied);
+}
+
 #pragma mark - Test: Admin Can Delete Multiple Different Users
 
 - (void)testAdminCanDeleteMultipleUsers {

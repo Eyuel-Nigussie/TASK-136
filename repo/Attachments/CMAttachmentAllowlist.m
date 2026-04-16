@@ -41,11 +41,10 @@ static NSString *const kTagAllowlist = @"attachment.allowlist";
         _allowedMIMETypes = [[self class] defaultAllowedMIMETypes];
         return;
     }
-    // Restrict to subset of default — admins can narrow but not expand.
-    NSSet *defaults = [[self class] defaultAllowedMIMETypes];
-    NSMutableSet *intersection = [allowedMIMETypes mutableCopy];
-    [intersection intersectSet:defaults];
-    _allowedMIMETypes = intersection.count > 0 ? [intersection copy] : defaults;
+    // Accept the tenant-admin-configured MIME set as-is. Defaults are the
+    // initial value; admins can narrow OR expand via tenant config. All
+    // updates are audited through CMAdminDashboardViewController.
+    _allowedMIMETypes = [allowedMIMETypes copy];
 }
 
 + (NSSet<NSString *> *)defaultAllowedMIMETypes {

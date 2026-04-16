@@ -243,16 +243,20 @@
         XCTAssertNotNil(entry.createdAt, @"Audit entry should have a createdAt");
     }
 
-    // Lifecycle assertions — use containsObject if entries propagated, otherwise
-    // at least assert any entries exist (background-write merge may be flaky in tests).
-    if (actions.count > 0) {
-        XCTAssertTrue([actions containsObject:@"appeal.open"] ||
-                      [actions containsObject:@"appeal.assign_reviewer"] ||
-                      [actions containsObject:@"appeal.decide"] ||
-                      [actions containsObject:@"appeal.close"],
-                      @"Audit trail must contain at least one appeal lifecycle action; got %@", actions);
-    }
-    // Test passes; audit chain integrity is separately tested in CMAuditChainIntegrationTests.
+    // Strict lifecycle assertions: all four appeal lifecycle actions must be present.
+    // CMAuditService writes via background context; the 3-second settle above gives
+    // writes time to land. Assert each action individually so regressions in any
+    // single audit point are caught.
+    XCTAssertGreaterThan(actions.count, 0u,
+                         @"Audit trail must contain entries after appeal lifecycle; got none");
+    XCTAssertTrue([actions containsObject:@"appeal.open"],
+                  @"Audit trail must contain 'appeal.open'; got %@", actions);
+    XCTAssertTrue([actions containsObject:@"appeal.assign_reviewer"],
+                  @"Audit trail must contain 'appeal.assign_reviewer'; got %@", actions);
+    XCTAssertTrue([actions containsObject:@"appeal.decide"],
+                  @"Audit trail must contain 'appeal.decide'; got %@", actions);
+    XCTAssertTrue([actions containsObject:@"appeal.close"],
+                  @"Audit trail must contain 'appeal.close'; got %@", actions);
 }
 
 #pragma mark - Test: Appeal Cannot Be Opened Against Non-Finalized Scorecard

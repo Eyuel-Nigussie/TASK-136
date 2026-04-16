@@ -148,9 +148,12 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
             if (saved) {
                 self.baseVersion = self.order.version;
 
-                // Emit assignment notification
+                // Emit assignment notification — explicit tenantId to avoid
+                // ambient-context dependency in async/background scenarios.
                 CMNotificationCenterService *notifService = [[CMNotificationCenterService alloc] init];
+                NSString *tid = [CMTenantContext shared].currentTenantId ?: @"";
                 [notifService emitNotificationForEvent:@"assigned"
+                                              tenantId:tid
                                                payload:@{@"orderRef": self.order.externalOrderRef ?: @"",
                                                          @"courierName": courierId}
                                        recipientUserId:courierId
@@ -217,12 +220,14 @@ typedef NS_ENUM(NSInteger, CMOrderDetailSection) {
                     } else if ([status isEqualToString:CMOrderStatusDelivered]) {
                         payload[@"deliveredTime"] = nowFormatted;
                     }
+                    NSString *emitTid = [CMTenantContext shared].currentTenantId ?: @"";
                     [notifService emitNotificationForEvent:templateKey
-                                                   payload:[payload copy]
-                                           recipientUserId:recipientId
-                                         subjectEntityType:@"Order"
-                                           subjectEntityId:self.order.orderId
-                                                completion:nil];
+                                                 tenantId:emitTid
+                                                  payload:[payload copy]
+                                          recipientUserId:recipientId
+                                        subjectEntityType:@"Order"
+                                          subjectEntityId:self.order.orderId
+                                               completion:nil];
 
                     [CMHaptics success];
                     [self.tableView reloadData];

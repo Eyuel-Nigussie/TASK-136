@@ -59,41 +59,32 @@ Native iOS application (Objective-C / UIKit) for offline courier dispatching, it
    ```
    Builds the project, installs it on the iOS Simulator (iPhone 17 Pro by default), and launches it.
 
-2. **Build Docker Image:**
-   ```bash
-   docker compose run build
-   ```
-   Runs platform-independent project structure and test coverage validation inside a lightweight Alpine container. No Xcode required.
+2. **Access the App:**
+   The CourierMatch login screen appears automatically after `./start.sh` completes.
 
-3. **Access the App:**
-   * iOS Simulator: The CourierMatch login screen appears automatically after `./start.sh` completes.
-
-4. **Verify the App Works:**
+3. **Verify the App Works:**
    1. The login screen shows **Tenant ID**, **Username**, and **Password** fields plus a **Create Account** button.
    2. Tap **Create Account** → enter tenant `test`, username `admin`, password `AdminTest123!` → submit. The first account on a tenant is automatically promoted to Admin.
    3. The main tab bar appears: **Itineraries**, **Orders**, **Notifications** (Admin also sees **Scoring** and **Admin** tabs).
    4. Tap **Notifications** → the unread-count badge reflects pending items.
 
+4. **Stop and Clean Up:**
+   ```bash
+   docker compose down -v
+   ```
+
 ## Testing
 
-All unit, integration, and UI tests are executed via a single, standardized shell script.
-
-Make sure the script is executable, then run it:
+The **single canonical test command** is `run_tests.sh`. All unit, integration, and UI tests are executed through this script:
 
 ```bash
 chmod +x run_tests.sh
 ./run_tests.sh
 ```
 
-To run a specific test suite:
+This runs the full XCTest suite (850+ tests) via `xcodebuild test` on the local macOS host. Exit code 0 = all tests passed; non-zero = failure.
 
-```bash
-./run_tests.sh unit         # unit tests only
-./run_tests.sh integration  # integration tests only
-./run_tests.sh ui           # UI tests only
-```
-
-*Note: The `run_tests.sh` script outputs a standard exit code (`0` for success, non-zero for failure) to integrate smoothly with CI/CD validators.*
+> **Docker validation** (`docker compose run build`) is secondary tooling that performs static project structure and test coverage checks inside an Alpine container. It does not execute XCTest and is not the canonical test path. Makefile targets (`make test`, `make test-unit`, etc.) are developer convenience wrappers around the same `xcodebuild` invocation and are not required for acceptance validation.
 
 ## Seeded Credentials
 
