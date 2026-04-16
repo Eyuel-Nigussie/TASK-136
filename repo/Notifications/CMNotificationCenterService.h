@@ -35,22 +35,13 @@ extern NSNotificationName const CMNotificationUnreadCountDidChangeNotification;
 /// mirror to UNUserNotificationCenter.
 ///
 /// @param templateKey         One of: assigned, picked_up, delivered, dispute_opened.
+/// @param tenantId            Explicit tenant ID — avoids ambient-context dependency.
 /// @param payload             Dictionary for template variable resolution.
 /// @param recipientUserId     The user who receives the notification.
 /// @param subjectEntityType   Optional entity type (e.g. "Order", "Dispute").
 /// @param subjectEntityId     Optional entity ID.
 /// @param completion          Called on completion with the emitted item (or digest) and optional error.
 ///                            Called on the main thread.
-- (void)emitNotificationForEvent:(NSString *)templateKey
-                         payload:(nullable NSDictionary *)payload
-                 recipientUserId:(NSString *)recipientUserId
-               subjectEntityType:(nullable NSString *)subjectEntityType
-                 subjectEntityId:(nullable NSString *)subjectEntityId
-                      completion:(nullable void (^)(CMNotificationItem * _Nullable item, NSError * _Nullable error))completion;
-
-/// Emit with explicit tenant binding — preferred for background tasks where
-/// CMTenantContext may be unset/stale. Stamps the notification and bucket
-/// using the supplied tenantId rather than ambient context.
 - (void)emitNotificationForEvent:(NSString *)templateKey
                         tenantId:(NSString *)tenantId
                          payload:(nullable NSDictionary *)payload

@@ -28,7 +28,7 @@ build: setup ## Build the app for iOS Simulator
 		$(SIGN_FLAGS) \
 		| tail -5
 
-test: setup ## Run all tests (unit + integration)
+test: setup ## Run all tests — canonical path is ./run_tests.sh
 	xcodebuild test \
 		-project $(PROJECT) \
 		-scheme $(SCHEME) \
@@ -36,42 +36,6 @@ test: setup ## Run all tests (unit + integration)
 		-only-testing:CourierMatchTests \
 		$(SIGN_FLAGS) \
 		| grep -E '(Test Suite|Test Case.*failed|Executed|BUILD)' | tail -200
-
-test-unit: setup ## Run unit tests only
-	xcodebuild test \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination '$(DESTINATION)' \
-		-only-testing:CourierMatchTests \
-		-skip-testing:CourierMatchTests/CMAuthFlowIntegrationTests \
-		-skip-testing:CourierMatchTests/CMCourierFlowIntegrationTests \
-		-skip-testing:CourierMatchTests/CMDisputeAppealIntegrationTests \
-		-skip-testing:CourierMatchTests/CMNotificationCoalescingIntegrationTests \
-		-skip-testing:CourierMatchTests/CMAuditChainIntegrationTests \
-		$(SIGN_FLAGS) \
-		| grep -E '(Test Suite|Test Case.*failed|Executed|BUILD)' | tail -40
-
-test-integration: setup ## Run integration tests only
-	xcodebuild test \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination '$(DESTINATION)' \
-		-only-testing:CourierMatchTests/CMAuthFlowIntegrationTests \
-		-only-testing:CourierMatchTests/CMCourierFlowIntegrationTests \
-		-only-testing:CourierMatchTests/CMDisputeAppealIntegrationTests \
-		-only-testing:CourierMatchTests/CMNotificationCoalescingIntegrationTests \
-		-only-testing:CourierMatchTests/CMAuditChainIntegrationTests \
-		$(SIGN_FLAGS) \
-		| grep -E '(Test Suite|Test Case.*failed|Executed|BUILD)' | tail -40
-
-test-ui: setup ## Run UI tests (requires booted simulator)
-	xcodebuild test \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination '$(DESTINATION)' \
-		-only-testing:CourierMatchUITests \
-		$(SIGN_FLAGS) \
-		| grep -E '(Test Suite|Test Case.*failed|Executed|BUILD)' | tail -40
 
 run: setup ## Build and launch on simulator
 	xcodebuild build \

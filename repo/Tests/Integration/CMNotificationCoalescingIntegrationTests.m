@@ -48,11 +48,12 @@
     __block CMNotificationItem *emittedItem = nil;
 
     [service emitNotificationForEvent:templateKey
-                              payload:@{@"test": @YES}
-                      recipientUserId:self.courierUserId
-                    subjectEntityType:@"Test"
-                      subjectEntityId:@"test-entity"
-                           completion:^(CMNotificationItem *item, NSError *error) {
+                            tenantId:self.testTenantId
+                             payload:@{@"test": @YES}
+                     recipientUserId:self.courierUserId
+                   subjectEntityType:@"Test"
+                     subjectEntityId:@"test-entity"
+                          completion:^(CMNotificationItem *item, NSError *error) {
         emittedItem = item;
         [exp fulfill];
     }];
@@ -396,11 +397,12 @@
 
     CMNotificationCenterService *svc = [[CMNotificationCenterService alloc] init];
     [svc emitNotificationForEvent:@"assigned"
-                          payload:@{@"orderId": @"audit-test-order"}
-                  recipientUserId:self.courierUser.userId
-                subjectEntityType:@"Order"
-                  subjectEntityId:@"audit-test-order"
-                       completion:^(CMNotificationItem *item, NSError *error) {
+                        tenantId:self.testTenantId
+                         payload:@{@"orderId": @"audit-test-order"}
+                 recipientUserId:self.courierUser.userId
+               subjectEntityType:@"Order"
+                 subjectEntityId:@"audit-test-order"
+                      completion:^(CMNotificationItem *item, NSError *error) {
         notifId = item.notificationId;
         [emitExp fulfill];
     }];
@@ -429,11 +431,12 @@
     __block NSString *notifId = nil;
     CMNotificationCenterService *svc = [[CMNotificationCenterService alloc] init];
     [svc emitNotificationForEvent:@"delivered"
-                          payload:@{@"orderId": @"read-audit-order"}
-                  recipientUserId:self.courierUser.userId
-                subjectEntityType:@"Order"
-                  subjectEntityId:@"read-audit-order"
-                       completion:^(CMNotificationItem *item, NSError *error) {
+                        tenantId:self.testTenantId
+                         payload:@{@"orderId": @"read-audit-order"}
+                 recipientUserId:self.courierUser.userId
+               subjectEntityType:@"Order"
+                 subjectEntityId:@"read-audit-order"
+                      completion:^(CMNotificationItem *item, NSError *error) {
         notifId = item.notificationId;
         [emitExp fulfill];
     }];
@@ -479,11 +482,12 @@
     XCTestExpectation *exp = [self expectationWithDescription:@"fail-closed emit"];
     __block CMNotificationItem *resultItem = nil;
     [service emitNotificationForEvent:@"delivered"
-                              payload:@{@"orderId": @"fail-closed-order"}
-                      recipientUserId:self.courierUser.userId
-                    subjectEntityType:@"Order"
-                      subjectEntityId:@"fail-closed-order"
-                           completion:^(CMNotificationItem *item, NSError *error) {
+                            tenantId:self.testTenantId
+                             payload:@{@"orderId": @"fail-closed-order"}
+                     recipientUserId:self.courierUser.userId
+                   subjectEntityType:@"Order"
+                     subjectEntityId:@"fail-closed-order"
+                          completion:^(CMNotificationItem *item, NSError *error) {
         resultItem = item;
         [exp fulfill];
     }];

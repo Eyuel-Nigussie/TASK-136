@@ -55,23 +55,6 @@ NSNotificationName const CMNotificationUnreadCountDidChangeNotification =
 #pragma mark - Emit
 
 - (void)emitNotificationForEvent:(NSString *)templateKey
-                         payload:(NSDictionary *)payload
-                 recipientUserId:(NSString *)recipientUserId
-               subjectEntityType:(NSString *)subjectEntityType
-                 subjectEntityId:(NSString *)subjectEntityId
-                      completion:(void (^)(CMNotificationItem * _Nullable, NSError * _Nullable))completion {
-    // Delegate to the explicit-tenant variant using the ambient context.
-    NSString *ambientTenant = [CMTenantContext shared].currentTenantId ?: @"";
-    [self emitNotificationForEvent:templateKey
-                          tenantId:ambientTenant
-                           payload:payload
-                   recipientUserId:recipientUserId
-                 subjectEntityType:subjectEntityType
-                   subjectEntityId:subjectEntityId
-                        completion:completion];
-}
-
-- (void)emitNotificationForEvent:(NSString *)templateKey
                         tenantId:(NSString *)tenantId
                          payload:(NSDictionary *)payload
                  recipientUserId:(NSString *)recipientUserId

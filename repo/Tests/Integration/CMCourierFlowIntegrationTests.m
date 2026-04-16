@@ -132,6 +132,7 @@
     CMNotificationCenterService *notifService =
         [[CMNotificationCenterService alloc] initWithRepository:nil renderer:nil rateLimiter:nil];
     [notifService emitNotificationForEvent:@"assigned"
+                                  tenantId:self.testTenantId
                                    payload:@{@"orderId": acceptedOrder.orderId,
                                              @"courierName": @"Courier"}
                            recipientUserId:self.courierUserId
@@ -151,6 +152,7 @@
 
     XCTestExpectation *pickupNotifExp = [self expectationWithDescription:@"Picked up notification"];
     [notifService emitNotificationForEvent:@"picked_up"
+                                  tenantId:self.testTenantId
                                    payload:@{@"orderId": acceptedOrder.orderId}
                            recipientUserId:self.courierUserId
                          subjectEntityType:@"Order"
@@ -172,6 +174,7 @@
 
     XCTestExpectation *deliverNotifExp = [self expectationWithDescription:@"Delivered notification"];
     [notifService emitNotificationForEvent:@"delivered"
+                                  tenantId:self.testTenantId
                                    payload:@{@"orderId": acceptedOrder.orderId}
                            recipientUserId:self.courierUserId
                          subjectEntityType:@"Order"

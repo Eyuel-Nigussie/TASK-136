@@ -116,6 +116,7 @@
     CMNotificationCenterService *notifService =
         [[CMNotificationCenterService alloc] initWithRepository:nil renderer:nil rateLimiter:nil];
     [notifService emitNotificationForEvent:@"dispute_opened"
+                                  tenantId:self.testTenantId
                                    payload:@{@"orderId": order.orderId,
                                              @"disputeId": dispute.disputeId}
                            recipientUserId:self.reviewerUser.userId
