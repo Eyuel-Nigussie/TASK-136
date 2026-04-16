@@ -1,47 +1,6 @@
-# CourierMatch — iOS Operations & Audit App
+# CourierMatch
 
 Native iOS application (Objective-C / UIKit) for offline courier dispatching, itinerary-based order matching, and compliant delivery performance scoring. The app supports multi-role workflows for couriers, dispatchers, reviewers, customer service, finance, and administrators with full local persistence, audit chains, and tenant isolation.
-
-**240+ source files** | **~27,000 lines Objective-C** | **850+ test methods**
-
-## Quick Start
-
-### Run the App
-
-```bash
-./start.sh
-```
-
-Builds the project, installs it on the iOS Simulator, and launches it. The CourierMatch login screen appears on the simulator.
-
-### Run Tests
-
-```bash
-./run_tests.sh              # all tests (unit + integration)
-./run_tests.sh unit         # unit tests only
-./run_tests.sh integration  # integration tests only
-./run_tests.sh ui           # UI tests only
-```
-
-### Docker Validation (Any Platform)
-
-```bash
-docker compose run build
-```
-
-Runs platform-independent project structure and test coverage validation inside Docker. No Xcode required.
-
-### Verify the App Works
-
-After the simulator launches:
-1. The login screen shows **Tenant ID**, **Username**, and **Password** fields plus a **Create Account** button.
-2. Tap **Create Account** → enter tenant `test`, username `admin`, password `AdminTest123!` → submit.  
-   The first account on a tenant is automatically promoted to Admin.
-3. The main tab bar appears: **Itineraries**, **Orders**, **Notifications** (Admin also sees **Scoring** and **Admin** tabs).
-4. Tap **Notifications** → the unread-count badge reflects pending items.
-5. Repeat step 2 for each role in the **Seeded Credentials** table to confirm role-gated tab visibility.
-
----
 
 ## Architecture & Tech Stack
 
@@ -49,7 +8,7 @@ After the simulator launches:
 * **Persistence:** Core Data (dual-store: main + sidecar) with multi-tenant scoping
 * **Security:** Keychain (PBKDF2-SHA512 with pepper), AES-256-CBC + HMAC-SHA256 field encryption, NSFileProtectionComplete, biometric re-auth (LocalAuthentication)
 * **Build:** XcodeGen (project.yml → .xcodeproj), Xcode 16+, iOS 15.0+ deployment target
-* **Containerization:** Docker & Docker Compose (validation only)
+* **Containerization:** Docker & Docker Compose (Required)
 * **Testing:** XCTest (unit, integration, UI)
 
 ## Project Structure
@@ -88,45 +47,59 @@ After the simulator launches:
 
 ## Prerequisites
 
+* [Docker](https://docs.docker.com/get-docker/)
+* [Docker Compose](https://docs.docker.com/compose/install/)
 * **macOS with Xcode 16+** and **XcodeGen** (`brew install xcodegen`)
-* [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (for validation only)
 
 ## Running the Application
 
-```bash
-./start.sh
-```
+1. **Start the App:**
+   ```bash
+   ./start.sh
+   ```
+   Builds the project, installs it on the iOS Simulator (iPhone 17 Pro by default), and launches it.
 
-Builds the project, installs it on the iOS Simulator (iPhone 17 Pro by default), and launches it. Override the simulator with `SIMULATOR="iPhone 16 Pro" ./start.sh`.
+2. **Build Docker Image:**
+   ```bash
+   docker compose run build
+   ```
+   Runs platform-independent project structure and test coverage validation inside a lightweight Alpine container. No Xcode required.
+
+3. **Access the App:**
+   * iOS Simulator: The CourierMatch login screen appears automatically after `./start.sh` completes.
+
+4. **Verify the App Works:**
+   1. The login screen shows **Tenant ID**, **Username**, and **Password** fields plus a **Create Account** button.
+   2. Tap **Create Account** → enter tenant `test`, username `admin`, password `AdminTest123!` → submit. The first account on a tenant is automatically promoted to Admin.
+   3. The main tab bar appears: **Itineraries**, **Orders**, **Notifications** (Admin also sees **Scoring** and **Admin** tabs).
+   4. Tap **Notifications** → the unread-count badge reflects pending items.
 
 ## Testing
 
-Run the full XCTest suite locally:
+All unit, integration, and UI tests are executed via a single, standardized shell script.
+
+Make sure the script is executable, then run it:
 
 ```bash
-./run_tests.sh              # all tests (unit + integration)
+chmod +x run_tests.sh
+./run_tests.sh
+```
+
+To run a specific test suite:
+
+```bash
 ./run_tests.sh unit         # unit tests only
 ./run_tests.sh integration  # integration tests only
 ./run_tests.sh ui           # UI tests only
 ```
 
-Exit code 0 = all tests passed; non-zero = failure. Suitable for CI/CD pipelines with macOS runners.
-
-## Docker
-
-Docker is used only for platform-independent validation (no Xcode required):
-
-```bash
-docker compose run build
-```
-
-This runs `validate-build.py` (project structure) and `validate-tests.py` (test coverage) inside a lightweight Alpine container.
+*Note: The `run_tests.sh` script outputs a standard exit code (`0` for success, non-zero for failure) to integrate smoothly with CI/CD validators.*
 
 ## Seeded Credentials
 
-This is a **fully offline native iOS app** with no shipped seed data. Accounts are created locally through the in-app sign-up flow on first launch. The first user signing up to a tenant becomes its admin; all subsequent role-based access is governed by the `PermissionMatrix.plist` (Resources/) and tenant-scoped Core Data records.
+This is a fully offline native iOS app with no shipped seed data. Accounts are created locally through the in-app sign-up flow on first launch. The first user signing up to a tenant becomes its admin.
 
-For testing, the following ad-hoc credentials may be used through the Sign-Up screen (passwords must be 12+ chars, ≥1 digit, ≥1 symbol):
+For testing, use the following credentials through the Sign-Up screen (passwords must be 12+ chars, with at least 1 digit and 1 symbol):
 
 | Role | Username | Password | Notes |
 | :--- | :--- | :--- | :--- |
@@ -136,9 +109,3 @@ For testing, the following ad-hoc credentials may be used through the Sign-Up sc
 | **Reviewer** | `reviewer` | `ReviewTest123!` | Manual scoring, appeal decisions |
 | **Customer Service** | `cs` | `CSTest123!` | Open disputes, edit order notes |
 | **Finance** | `finance` | `FinanceTest123!` | Close monetary appeals, finance exports |
-
-## Documentation
-
-* `docs/design.md` — System design document
-* `docs/questions.md` — 20 assumptions with concrete solutions
-* `docs/apispec.md` — API specification (no external APIs — fully offline)
