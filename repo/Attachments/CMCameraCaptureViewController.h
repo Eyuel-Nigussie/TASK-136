@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)cameraCaptureDidCancel;
 @end
 
-@interface CMCameraCaptureViewController : UIViewController
+@interface CMCameraCaptureViewController : UIViewController <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 
 @property (nonatomic, weak, nullable) id<CMCameraCaptureDelegate> delegate;
 

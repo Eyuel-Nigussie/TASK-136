@@ -9,7 +9,7 @@
 #import "CMHaptics.h"
 #import <AVFoundation/AVFoundation.h>
 
-@interface CMCameraCaptureViewController () <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+@interface CMCameraCaptureViewController ()
 @property (nonatomic, copy) NSString *ownerType;
 @property (nonatomic, copy) NSString *ownerId;
 @end

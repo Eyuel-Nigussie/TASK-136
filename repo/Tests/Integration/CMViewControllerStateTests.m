@@ -418,6 +418,8 @@
     sc.tenantId = self.testTenantId;
     sc.rubricId = @"r-state-ds";
     sc.rubricVersion = 1;
+    sc.courierId = @"courier-state-ds";
+    sc.orderId = @"order-state-ds";
     sc.createdAt = [NSDate date];
     sc.updatedAt = [NSDate date];
     sc.version = 1;

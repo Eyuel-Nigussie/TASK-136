@@ -14,7 +14,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface CMScorecardViewController : UIViewController
+@interface CMScorecardViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
 
 - (instancetype)initWithScorecard:(CMDeliveryScorecard *)scorecard;
 

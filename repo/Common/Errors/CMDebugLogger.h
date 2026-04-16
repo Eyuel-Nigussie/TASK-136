@@ -26,6 +26,9 @@ typedef NS_ENUM(NSInteger, CMLogLevel) {
        tag:(NSString *)tag
    message:(NSString *)message;
 
+/// Returns the short label for a log level (e.g. "DBG", "INF", "WRN", "ERR").
+- (NSString *)labelForLevel:(CMLogLevel)level;
+
 - (NSArray<NSString *> *)currentBufferSnapshot;
 
 /// Returns a sanitized copy of the buffer with IDs, UUIDs, and potential PII

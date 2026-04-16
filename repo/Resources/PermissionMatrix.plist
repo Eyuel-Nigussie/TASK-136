@@ -63,6 +63,9 @@
         <string>allowlists.configure</string>
         <string>diagnostics.view</string>
         <string>audit.verify</string>
+        <string>orders.view_all</string>
+        <string>itineraries.view_all</string>
+        <string>scorecards.view</string>
     </array>
 </dict>
 </plist>

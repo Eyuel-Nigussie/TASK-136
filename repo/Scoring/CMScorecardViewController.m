@@ -134,7 +134,7 @@ typedef NS_ENUM(NSInteger, CMScorecardSection) {
 
 #pragma mark - Scorecard VC
 
-@interface CMScorecardViewController () <UITableViewDataSource, UITableViewDelegate>
+@interface CMScorecardViewController ()
 @property (nonatomic, strong) CMDeliveryScorecard *scorecard;
 @property (nonatomic, strong) CMScoringEngine *engine;
 @property (nonatomic, strong) UITableView *tableView;
